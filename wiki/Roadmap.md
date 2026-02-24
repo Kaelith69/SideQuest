@@ -1,501 +1,152 @@
 # Roadmap
 
-SideQuest's development roadmap and future plans.
-
-## 🎯 Vision
-
-Transform SideQuest into the go-to platform for neighborhood task exchange, building stronger community connections while creating economic opportunities.
+SideQuest development roadmap — planned features, version goals, and the long-term vision.
 
 ---
 
-## 📍 Current Status (v1.0)
+## 📍 Current Status — v1.0.0 (MVP)
 
-**Status**: Beta / MVP
+**Released features:**
 
-**What works:**
-- ✅ User authentication (sign up, login, logout)
-- ✅ Interactive map with real-time task markers
-- ✅ Task creation and management
-- ✅ Task claiming and completion
-- ✅ Basic wallet system with escrow
-- ✅ User profiles with ratings
-- ✅ Mobile-responsive design
-- ✅ Category filtering
+- ✅ Email/password authentication with demo wallet (₹500 on signup)
+- ✅ Interactive map with real-time task markers (MapLibre GL JS)
+- ✅ Task creation with optional ₹ reward and escrow
+- ✅ Task claiming, completion, and confirmation flow
+- ✅ 1–5 star rating system with running average
+- ✅ Category filter chips (Help / Delivery / Social / Other)
+- ✅ Full-text search on task title and description
+- ✅ User profiles with wallet balance and stats
+- ✅ Mobile-first responsive design with safe-area insets
+- ✅ Firestore security rules (auth-gated, ownership-enforced)
+- ✅ 24-hour auto-cleanup of stale open tasks
 
-**Known Limitations:**
-- No direct messaging between users
-- No payment gateway integration
+**Known limitations in v1.0.0:**
+
+- No direct messaging between poster and assignee
 - No push notifications
-- No photo uploads
-- No advanced search
-- No user verification
-- Limited security rules
+- No image uploads
+- No real payment gateway (demo ₹ only)
+- Tasks cannot be edited after posting
+- No user identity verification
+- No marker clustering for dense areas
 
 ---
 
-## 🚀 Version 2.0 (Q2 2024)
+## 🚀 v2.0 — Communication & Media
 
-### High Priority Features
+**Target:** Next major release
 
-#### 1. Direct Messaging System 💬
-**Status**: Planned
+### High Priority
 
-Enable users to communicate within the app:
-- Real-time chat between task posters and claimers
-- Message notifications
-- Chat history
-- Image sharing in messages
-- Block/report users
+| Feature | Description | Technical approach |
+|---|---|---|
+| 💬 **In-app chat** | Real-time messaging between poster and assignee for a task | Firestore `/chats/{taskId}/messages` subcollection + `onSnapshot` |
+| 🔔 **Push notifications** | Browser push for task claimed, task done, rating received | Firebase Cloud Messaging (FCM) + Service Worker |
+| 📷 **Photo attachments** | Up to 3 images per task post | Firebase Storage + compressed upload before `addDoc` |
+| ✏️ **Task editing** | Allow poster to edit title/description before it is claimed | `updateDoc` behind an ownership check; UI edit button |
 
-**Technical Details:**
-- Firestore collection for messages
-- Real-time listeners for new messages
-- In-app notification system
+### Medium Priority
 
----
-
-#### 2. Task Photo Uploads 📷
-**Status**: Planned
-
-Allow users to add photos to tasks:
-- Upload up to 5 photos per task
-- Photo gallery in task details
-- Compress images automatically
-- Firebase Storage integration
-
-**Technical Details:**
-- Firebase Storage for images
-- Image compression library
-- Gallery modal component
+| Feature | Description |
+|---|---|
+| 🔍 **Advanced search** | Distance-based filter (e.g. "within 2 km"), price range, sort by newest / closest / reward |
+| 📋 **Task templates** | Pre-filled common task templates (dog walk, grocery run, furniture move) |
+| 🧾 **Task history** | View completed tasks with timestamps, amounts, and ratings |
 
 ---
 
-#### 3. Enhanced Search & Filters 🔍
-**Status**: Planned
+## 🎨 v2.1 — Trust & Safety
 
-Improve task discovery:
-- Full-text search in titles and descriptions
-- Distance-based filtering (e.g., within 5km)
-- Price range filters
-- Date posted filters
-- Sort by: newest, closest, highest reward
-
-**Technical Details:**
-- Algolia Search integration (or similar)
-- Advanced Firestore queries
-- Geohash for location queries
+| Feature | Description | Technical approach |
+|---|---|---|
+| 📱 **Phone verification** | OTP-verified phone number linked to account | Firebase Phone Auth |
+| 🛡️ **Report & block** | Flag inappropriate tasks or users | Firestore `/reports` collection + admin review |
+| ⭐ **Detailed reviews** | Written review text alongside star rating | Add `reviewText` field to task completion transaction |
+| 🔒 **Email verification** | Require email confirmation before first task post | `sendEmailVerification()` on signup + check before post |
 
 ---
 
-#### 4. Push Notifications 🔔
-**Status**: In Design
+## 🌐 v3.0 — Payments & Scale
 
-Keep users informed:
-- Task claimed/completed notifications
-- New messages
-- Rating received
-- Payment received
-- Nearby tasks (optional)
-
-**Technical Details:**
-- Firebase Cloud Messaging (FCM)
-- Service Worker for web notifications
-- User notification preferences
+| Feature | Description |
+|---|---|
+| 💳 **Real payment gateway** | Top-up wallet via Razorpay / Stripe; withdraw earnings to bank | Cloud Functions for payment processing; PCI-compliant flow |
+| 📍 **Geo-query optimisation** | Only load tasks within a configurable radius using geohashes | `geofire-common` library + compound Firestore index |
+| 🔄 **Pagination** | Load tasks in batches of 20 instead of all at once | Firestore cursor-based pagination with `startAfter()` |
+| 📊 **Analytics dashboard** | Task completion rates, DAU, geographic heatmap | Firebase Analytics + BigQuery export |
 
 ---
 
-### Medium Priority Features
+## 📱 v4.0 — Native Mobile
 
-#### 5. Payment Gateway Integration 💳
-**Status**: Research Phase
-
-Enable real money transactions:
-- Integrate with Razorpay or Stripe
-- Add funds via credit/debit card, UPI
-- Withdraw earnings to bank account
-- Transaction history
-- Invoice generation
-
-**Technical Details:**
-- Cloud Functions for payment processing
-- Webhook handlers
-- PCI compliance considerations
+| Feature | Description |
+|---|---|
+| 🍎 **iOS app** | Native iOS app via React Native or Flutter | App Store distribution |
+| 🤖 **Android app** | Native Android app | Google Play distribution |
+| 🔕 **Offline support** | Cache tasks and map tiles for offline browsing | Service Worker + IndexedDB |
+| 🔔 **Native push** | OS-level push notifications | FCM APNs/FCM Android |
 
 ---
 
-#### 6. User Verification 🛡️
-**Status**: Planned
+## 🤖 Long-term Vision (2026+)
 
-Build trust in the community:
-- Phone number verification (OTP)
-- Email verification (already partial)
-- Government ID verification (optional)
-- Social media linking
-- Verified badge display
-
-**Technical Details:**
-- Firebase Phone Auth
-- Third-party verification service
-- Admin approval workflow
+| Idea | Status |
+|---|---|
+| AI-powered price suggestions | Research |
+| Auto-categorisation of tasks via NLP | Research |
+| Group/community tasks (block clean-up, etc.) | Conceptual |
+| Business accounts with bulk posting and analytics | Conceptual |
+| Insurance / damage protection for high-value tasks | Conceptual |
+| White-label solution for housing societies | Conceptual |
+| API for third-party integrations | Conceptual |
 
 ---
 
-#### 7. Advanced Rating System ⭐
-**Status**: Planned
+## 🔧 Ongoing Technical Improvements
 
-More detailed feedback:
-- Separate ratings for different aspects
-  - Punctuality
-  - Quality of work
-  - Communication
-- Written reviews
-- Response to reviews
-- Flag inappropriate reviews
+### Performance
+- [ ] Marker clustering (`maplibre-gl-cluster` or custom) for dense areas
+- [ ] Viewport-culled task queries (only load tasks in visible map bounds)
+- [ ] Self-hosted map tiles to remove external dependency
 
-**Technical Details:**
-- Extended rating schema in Firestore
-- Review moderation system
-- Sentiment analysis (future)
+### Security
+- [ ] Firebase App Check to prevent unauthorised API usage
+- [ ] Rate limiting via Cloud Functions
+- [ ] Regular Firestore rules audit
 
----
+### Developer Experience
+- [ ] Firebase Emulator configuration committed to repo for local testing
+- [ ] Automated E2E test suite (Playwright)
+- [ ] CI/CD pipeline for Firebase Hosting deployments
 
-#### 8. Task Templates & Quick Actions ⚡
-**Status**: Planned
-
-Streamline common tasks:
-- Pre-made task templates
-  - "Walk my dog"
-  - "Grocery shopping"
-  - "Furniture assembly"
-- Quick repost previous tasks
-- Favorite/saved tasks
-- Recurring tasks
-
-**Technical Details:**
-- Templates collection in Firestore
-- Task duplication logic
-- Scheduling system
+### Accessibility
+- [ ] Full keyboard navigation support for all modals
+- [ ] ARIA live regions for toast notifications
+- [ ] High-contrast mode support
+- [ ] `prefers-reduced-motion` CSS media query for all animations
 
 ---
 
-## 🎨 Version 3.0 (Q4 2024)
+## 📅 How Releases Work
 
-### Major Features
+- **Patch releases** (x.x.N): Bug fixes and small improvements — as needed
+- **Minor releases** (x.N.0): New features within the current scope — roughly quarterly
+- **Major releases** (N.0.0): Significant architectural changes or breaking API changes — as warranted
 
-#### 9. Native Mobile Apps 📱
-**Status**: Planned
-
-Better mobile experience:
-- React Native or Flutter
-- iOS and Android apps
-- Native notifications
-- Better performance
-- Offline mode
-- Camera integration
-
-**Technical Details:**
-- React Native + Firebase
-- App Store and Play Store deployment
-- Deep linking
+This roadmap is a **living document** and subject to change based on community feedback, technical feasibility, and available resources. No timelines are guaranteed.
 
 ---
 
-#### 10. Business Accounts 🏢
-**Status**: Planned
+## 💬 Influence the Roadmap
 
-Allow businesses to post tasks:
-- Business verification
-- Higher limits
-- Analytics dashboard
-- Team management
-- Bulk task posting
-- API access (future)
-
-**Technical Details:**
-- Business user type in database
-- Separate business dashboard
-- Advanced permissions system
+- 👍 Upvote features on [existing issues](https://github.com/Kaelith69/SideQuest/issues)
+- 💡 Open a [feature request](https://github.com/Kaelith69/SideQuest/issues/new) with the `enhancement` label
+- 🔀 Submit a PR — merged contributions accelerate roadmap items
+- 📣 Share your use cases and pain points in [Discussions](https://github.com/Kaelith69/SideQuest/discussions)
 
 ---
 
-#### 11. Gamification & Rewards 🏆
-**Status**: Conceptual
-
-Engage users with game-like features:
-- Achievement system
-  - "First task completed"
-  - "10 perfect ratings"
-  - "100 tasks posted"
-- Leaderboards (weekly, monthly, all-time)
-- Badges and levels
-- Referral rewards
-- Loyalty program
-
-**Technical Details:**
-- Achievements collection
-- Points system
-- Leaderboard calculations
+[← Home](Home.md) | [Troubleshooting →](Troubleshooting.md)
 
 ---
 
-#### 12. Task Scheduler & Deadlines ⏰
-**Status**: Planned
-
-Better time management:
-- Set specific task deadlines
-- Schedule tasks for future dates
-- Recurring tasks (daily, weekly)
-- Reminder notifications
-- Auto-cancel if deadline missed
-
-**Technical Details:**
-- Cloud Functions for scheduling
-- Cron jobs via Cloud Scheduler
-- Timestamp management
-
----
-
-## 🌟 Future Vision (2025+)
-
-### Long-term Goals
-
-#### 13. AI-Powered Features 🤖
-**Status**: Research
-
-Leverage AI for better UX:
-- Smart task recommendations
-- Auto-categorization of tasks
-- Price suggestions based on task type
-- Fraud detection
-- Automated moderation
-- Chatbot support
-
----
-
-#### 14. Community Features 👥
-**Status**: Conceptual
-
-Build stronger neighborhoods:
-- Local community forums
-- Event planning and coordination
-- Neighborhood news feed
-- Group tasks (e.g., block cleanup)
-- Community guidelines and voting
-
----
-
-#### 15. Insurance & Protection 🛡️
-**Status**: Conceptual
-
-Protect users and transactions:
-- Task insurance for high-value items
-- Damage protection
-- Identity theft protection
-- Dispute resolution system
-- Escrow guarantees
-
----
-
-#### 16. Marketplace Expansion 🌍
-**Status**: Vision
-
-Expand beyond tasks:
-- Item lending/borrowing
-- Skill sharing (teach guitar, coding, etc.)
-- Local services directory
-- Pet sitting and walking
-- Home services
-
----
-
-## 🔧 Technical Improvements
-
-### Ongoing Optimizations
-
-#### Performance
-- [ ] Implement code splitting
-- [ ] Add service worker for offline support
-- [ ] Optimize bundle size
-- [ ] Lazy load images
-- [ ] Implement virtual scrolling for long lists
-
-#### Security
-- [ ] Advanced Firestore security rules
-- [ ] Rate limiting on all endpoints
-- [ ] DDoS protection
-- [ ] Regular security audits
-- [ ] Penetration testing
-
-#### Scalability
-- [ ] Implement caching strategy
-- [ ] Use geohash for location queries
-- [ ] Add pagination to all lists
-- [ ] Optimize real-time listeners
-- [ ] CDN for static assets
-
-#### Testing
-- [ ] Unit tests (Jest)
-- [ ] Integration tests
-- [ ] E2E tests (Cypress/Playwright)
-- [ ] Performance testing
-- [ ] Accessibility testing
-
----
-
-## 🐛 Bug Fixes & Improvements
-
-### Reported Issues
-
-See [GitHub Issues](https://github.com/Kaelith69/SideQuest/issues) for current bug tracker.
-
-**High Priority Bugs:**
-- [ ] Task detail modal sometimes doesn't close on backdrop click
-- [ ] Map markers cluster on zoom out (need marker clustering)
-- [ ] Wallet balance not updating immediately after task completion
-
-**UI/UX Improvements:**
-- [ ] Add loading states to all buttons
-- [ ] Better error messages
-- [ ] Improved onboarding for new users
-- [ ] Dark mode support
-- [ ] Accessibility improvements (ARIA labels, keyboard navigation)
-
----
-
-## 📊 Metrics & Analytics
-
-### Planning to Track
-
-- Daily/Monthly Active Users (DAU/MAU)
-- Tasks posted per day
-- Task completion rate
-- Average task value
-- User retention rate
-- Geographic distribution
-- Most popular categories
-- Average rating
-- Response time (claim to complete)
-
-**Analytics Tools:**
-- Firebase Analytics
-- Google Analytics
-- Custom dashboard (future)
-
----
-
-## 💡 Community Requests
-
-Top feature requests from users:
-
-1. **Task editing** (before claimed) - *Planned for v2.0*
-2. **Direct messaging** - *Planned for v2.0*
-3. **Photo uploads** - *Planned for v2.0*
-4. **Better search** - *Planned for v2.0*
-5. **Task history** - *Easy to add*
-6. **Export data** - *Privacy-focused*
-7. **Multi-language support** - *Long-term*
-
----
-
-## 🤝 How to Contribute
-
-Want to help build these features?
-
-### For Developers
-1. Check [open issues](https://github.com/Kaelith69/SideQuest/issues)
-2. Look for issues labeled `help wanted` or `good first issue`
-3. Comment on issues you want to work on
-4. Fork, code, test, and submit PR
-
-### For Designers
-- Mockups for new features
-- UI/UX improvements
-- Icons and illustrations
-- Branding materials
-
-### For Testers
-- Test new features in beta
-- Report bugs with details
-- Suggest improvements
-- Provide user feedback
-
-### For Writers
-- Improve documentation
-- Write tutorials
-- Create video guides
-- Translate to other languages
-
----
-
-## 📅 Release Schedule
-
-**Current Cycle**: Rolling releases
-
-**Planned Schedule:**
-- **Minor updates**: Monthly (bug fixes, small improvements)
-- **Major updates**: Quarterly (new features)
-- **Breaking changes**: Yearly (with migration guides)
-
----
-
-## 🎯 Success Metrics
-
-Goals for 2024:
-
-- [ ] 1,000+ active users
-- [ ] 5,000+ tasks completed
-- [ ] 4.5+ average app rating
-- [ ] <1% bug rate
-- [ ] 50%+ user retention after 30 days
-
----
-
-## 🔮 Speculative Features
-
-Ideas in very early stages:
-
-- **Video calls** for remote help tasks
-- **Subscription tiers** (premium features)
-- **API for third-party integrations**
-- **White-label solution** for other communities
-- **Blockchain integration** for transparent transactions
-- **AR features** for navigation to task locations
-
----
-
-## 📣 Stay Updated
-
-Follow development progress:
-
-- **GitHub**: Watch the repository for updates
-- **Issues**: Track feature requests and bugs
-- **Releases**: Subscribe to release notifications
-- **Changelog**: Check regularly for updates
-
----
-
-## 💬 Feedback
-
-Have ideas or suggestions?
-
-1. Open a [feature request](https://github.com/Kaelith69/SideQuest/issues/new)
-2. Join discussions in existing issues
-3. Share your use cases and pain points
-4. Vote on features you want (👍 reactions on issues)
-
----
-
-## ⚖️ Disclaimer
-
-This roadmap is a living document and subject to change based on:
-- User feedback and demand
-- Technical feasibility
-- Resource availability
-- Market conditions
-- Community contributions
-
-No timelines are guaranteed. Features may be added, removed, or reprioritized.
-
----
-
-[← Back to Home](Home.md)

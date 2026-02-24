@@ -1,627 +1,285 @@
 # Troubleshooting Guide
 
-Common issues and their solutions for SideQuest.
-
-## 🎯 Quick Diagnostic
-
-Before diving into specific issues, try these general troubleshooting steps:
-
-1. **Hard refresh**: Ctrl+F5 (Windows) / Cmd+Shift+R (Mac)
-2. **Clear cache**: Clear browser cache and cookies
-3. **Check console**: Open browser DevTools (F12) and check Console tab for errors
-4. **Try incognito**: Test in incognito/private browsing mode
-5. **Different browser**: Try Chrome, Firefox, or Safari
+Systematic diagnosis and solutions for the most common SideQuest issues.
 
 ---
 
-## 🚫 Installation Issues
+## 🩺 Quick Diagnostic Steps
 
-### Issue: Can't clone repository
+Before diving into specific sections, run through this checklist first:
 
-**Symptoms:**
+1. **Hard refresh:** `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac)
+2. **Open the browser console:** `F12` → **Console** tab — note any red errors
+3. **Check the Network tab:** `F12` → **Network** — look for failed requests (red rows)
+4. **Try incognito mode:** Rules out browser extensions or cached state
+5. **Try a different browser:** Chrome, Firefox, or Safari
+
+---
+
+## 🔴 Installation & Setup Issues
+
+### App fails to load — CORS error on `file://`
+
+**Symptom:**
+```
+Access to script at 'file:///js/app.js' blocked by CORS policy
+```
+
+**Cause:** ES Modules cannot be loaded from a `file://` origin.
+
+**Fix:** Use a local HTTP server:
 ```bash
-fatal: repository 'https://github.com/Kaelith69/SideQuest.git' not found
-```
-
-**Solutions:**
-1. Check the repository URL is correct
-2. Verify you have internet connection
-3. Try using SSH instead of HTTPS:
-   ```bash
-   git clone git@github.com:Kaelith69/SideQuest.git
-   ```
-
-### Issue: Firebase config file missing
-
-**Symptoms:**
-- Error: `Cannot find module './firebase-config.js'`
-- App crashes on load
-
-**Solutions:**
-1. Create `js/firebase-config.js`:
-   ```bash
-   touch js/firebase-config.js
-   ```
-2. Add your Firebase configuration (see [Installation Guide](Installation-Guide.md))
-3. Verify the file is in the correct location: `/js/firebase-config.js`
-
-### Issue: Local server won't start
-
-**Symptoms:**
-- `python: command not found`
-- `npm: command not found`
-
-**Solutions:**
-
-For Python:
-```bash
-# Check if Python is installed
-python --version
-python3 --version
-
-# Install Python from python.org if needed
-```
-
-For Node.js:
-```bash
-# Check if Node is installed
-node --version
-
-# Install Node.js from nodejs.org if needed
-```
-
-Alternative: Use VS Code Live Server extension
-
-### Issue: CORS errors when opening index.html
-
-**Symptoms:**
-```
-Access to script at 'file:///js/app.js' from origin 'null' has been blocked by CORS policy
-```
-
-**Solution:**
-You **cannot** open `index.html` directly. You must use a local web server:
-```bash
-# Python
-python -m http.server 8000
-
-# Node.js
-npx http-server . -p 8000
+python -m http.server 8000          # Python 3
+npx http-server . -p 8000           # Node.js
+# Or use VS Code Live Server extension
 ```
 
 ---
 
-## 🔐 Authentication Issues
+### Firebase not initialised
 
-### Issue: Can't sign up
+**Symptom:**
+```
+Firebase: No Firebase App '[DEFAULT]' has been created (app/no-app).
+```
 
-**Symptoms:**
-- Error: "Email already in use"
-- Error: "Invalid email"
-- Error: "Weak password"
+**Cause:** `js/firebase-config.js` is missing, empty, or contains placeholder values.
 
-**Solutions:**
+**Fix:**
+1. Open `js/firebase-config.js`
+2. Ensure `apiKey`, `projectId`, `appId`, etc. are filled with real values from your Firebase project
+3. Check for typos — a trailing comma or missing quote will silently break JSON-like objects
 
-**Email already in use:**
-- Try signing in instead of signing up
-- Use a different email address
-- Reset password (if implemented)
+---
 
-**Invalid email:**
-- Check email format is valid (e.g., `user@example.com`)
-- Remove spaces or special characters
+### Missing or insufficient permissions
 
-**Weak password:**
-- Password must be at least 6 characters
-- Use a mix of letters, numbers, and symbols
+**Symptom:**
+```
+FirebaseError: [code=permission-denied]: Missing or insufficient permissions.
+```
 
-### Issue: Can't sign in
+**Cause:** Firestore security rules have not been deployed, or have expired.
 
-**Symptoms:**
-- Error: "Wrong password"
-- Error: "User not found"
-- Stuck on loading screen
+**Fix:**
+```bash
+firebase deploy --only firestore:rules
+```
+Or paste `firestore.rules` into the Firebase Console → **Firestore → Rules** and click **Publish**.
 
-**Solutions:**
+---
 
-1. **Verify credentials**:
-   - Check email spelling
-   - Check password (case-sensitive)
-   - Try resetting password
+## 🔑 Authentication Issues
 
-2. **Check Firebase Console**:
-   - Go to Firebase Console → Authentication
-   - Verify Email/Password auth is enabled
-   - Check if user exists in the list
+### Can't sign up — email already in use
 
-3. **Check browser console**:
-   - Open DevTools (F12)
-   - Look for specific error messages
-   - Common errors:
-     ```
-     auth/user-not-found
-     auth/wrong-password
-     auth/too-many-requests
-     auth/network-request-failed
-     ```
+**Fix:** Use a different email address, or switch to **Sign In** if you already have an account.
 
-### Issue: Automatically logged out
+### Can't sign up — weak password
 
-**Symptoms:**
-- Session expires unexpectedly
-- Have to log in every time
+**Fix:** Password must be at least 6 characters. Firebase requires this minimum.
 
-**Solutions:**
+### Stuck on loading screen after login
 
-1. **Check session persistence**:
-   ```javascript
-   // In firebase-config.js or auth.js
-   import { setPersistence, browserLocalPersistence } from "firebase/auth";
-   await setPersistence(auth, browserLocalPersistence);
-   ```
+**Possible causes:**
+1. Firebase project not configured → check `firebase-config.js`
+2. Authentication not enabled in Firebase Console → **Build → Authentication → Sign-in method → Email/Password → Enable**
+3. Network request failed → check internet connection and Firebase status at [status.firebase.google.com](https://status.firebase.google.com/)
 
-2. **Check browser settings**:
-   - Allow cookies for the site
-   - Don't block third-party cookies
-   - Disable "Clear cookies on exit"
+### Automatically logged out
 
-3. **Check Firebase token expiration**:
-   - Firebase tokens expire after 1 hour
-   - Refresh is automatic if configured correctly
+**Cause:** Session token expired or browser cleared IndexedDB storage.
+
+**Fix:** Firebase Auth persistence is `browserLocalPersistence` by default (survives tab close). If you are being logged out:
+- Check that your browser does not clear cookies/storage on exit
+- Test in an incognito window to confirm it's not an extension issue
 
 ---
 
 ## 🗺️ Map Issues
 
-### Issue: Map not loading
+### Map shows blank grey area
 
-**Symptoms:**
-- Blank gray area where map should be
-- Error: "Style is not done loading"
-- Map tiles not appearing
+**Possible causes:**
 
-**Solutions:**
+| Cause | Check |
+|---|---|
+| Internet offline | Can you load `https://demotiles.maplibre.org/style.json` in a new tab? |
+| MapLibre JS not loaded | `console.log(typeof maplibregl)` — should not be `undefined` |
+| JavaScript error before map init | Check Console for errors in `map.js` |
 
-1. **Check internet connection**:
-   - Map tiles load from CDN
-   - Verify you can access `https://demotiles.maplibre.org`
+---
 
-2. **Check MapLibre loading**:
-   ```javascript
-   // In browser console
-   console.log(maplibregl);  // Should not be undefined
-   ```
+### User location not detected / permission denied
 
-3. **Check for JavaScript errors**:
-   - Open Console (F12)
-   - Look for MapLibre-related errors
+**Symptoms:** Map does not centre on your location; no blue pulsing marker.
 
-4. **Try different map style**:
-   ```javascript
-   // In map.js, change style URL
-   style: 'https://demotiles.maplibre.org/style.json'
-   ```
+**Fixes:**
 
-### Issue: User location not working
-
-**Symptoms:**
-- "Location access denied" message
-- Map doesn't center on user
-- User marker doesn't appear
-
-**Solutions:**
-
-1. **Grant location permissions**:
-   - Click the location icon in browser address bar
-   - Allow location access for the site
-   - Refresh the page
-
-2. **Check browser location settings**:
-   - Settings → Privacy → Location
-   - Ensure location services are enabled
-
-3. **HTTPS requirement**:
-   - Geolocation requires HTTPS (or localhost)
-   - If testing on local network, use `localhost` not IP address
-
-4. **Test geolocation manually**:
+1. **Grant permission:** Click the lock/info icon in the browser address bar → **Location** → **Allow**
+2. **HTTPS required:** Geolocation only works on `localhost` or HTTPS — do not test over a LAN IP without HTTPS
+3. **Test manually:**
    ```javascript
    // In browser console
    navigator.geolocation.getCurrentPosition(
-     pos => console.log(pos),
-     err => console.error(err)
+     pos => console.log('coords:', pos.coords),
+     err => console.error('error:', err.code, err.message)
    );
    ```
-
-### Issue: Markers not appearing
-
-**Symptoms:**
-- Map loads but no task markers
-- Only user marker visible
-- Tasks exist in Firestore but don't show
-
-**Solutions:**
-
-1. **Check if tasks exist**:
-   - Open Firebase Console → Firestore
-   - Check `tasks` collection
-   - Verify status is "open"
-
-2. **Check real-time listener**:
-   ```javascript
-   // In browser console
-   // You should see snapshot updates logged
-   ```
-
-3. **Check marker creation**:
-   ```javascript
-   // In map.js
-   console.log('Adding marker for task:', task.id);
-   ```
-
-4. **Check map bounds**:
-   - Zoom out to see if markers are outside view
-   - Pan around the map
-
-### Issue: Map performance is slow
-
-**Symptoms:**
-- Laggy map movement
-- Slow marker rendering
-- Browser becomes unresponsive
-
-**Solutions:**
-
-1. **Limit number of markers**:
-   ```javascript
-   // Add limit to query
-   const q = query(
-     collection(db, "tasks"),
-     where("status", "==", "open"),
-     limit(50)  // Add this
-   );
-   ```
-
-2. **Clear old markers**:
-   ```javascript
-   // Make sure clearMarkers() is called before adding new ones
-   clearMarkers();
-   ```
-
-3. **Reduce map complexity**:
-   - Lower zoom level
-   - Disable 3D buildings
-   - Use simpler map style
-
-4. **Check device performance**:
-   - Close other tabs/apps
-   - Update browser
-   - Check CPU/memory usage
+   Error codes: `1` = PERMISSION_DENIED, `2` = POSITION_UNAVAILABLE, `3` = TIMEOUT
 
 ---
 
-## 💰 Task & Wallet Issues
+### Task markers not appearing
 
-### Issue: Can't create task
+**Checklist:**
 
-**Symptoms:**
-- "Insufficient balance" error
-- Form validation errors
-- Task not appearing after creation
-
-**Solutions:**
-
-**Insufficient balance:**
-1. Check your wallet balance
-2. Reduce reward amount or set to 0
-3. Add funds to wallet (see FAQ)
-
-**Validation errors:**
-- Title: 3-100 characters required
-- Description: 10-1000 characters required
-- Reward: Must be positive number
-- Category: Must select one
-
-**Task not appearing:**
-1. Check Firestore Console for task creation
-2. Check browser console for errors
-3. Verify real-time listener is active
-4. Refresh the page
-
-### Issue: Can't claim task
-
-**Symptoms:**
-- "Cannot claim own task" error
-- Claim button not working
-- Task disappears after claiming
-
-**Solutions:**
-
-**Can't claim own task:**
-- You posted this task, find another one to claim
-
-**Button not working:**
-1. Check if you're signed in
-2. Check if task is still "open"
-3. Check browser console for errors
-
-**Task disappears:**
-- This is expected - check "My Tasks" → "Claimed" tab
-
-### Issue: Wallet balance incorrect
-
-**Symptoms:**
-- Balance doesn't update
-- Negative balance
-- Balance resets to 0
-
-**Solutions:**
-
-1. **Check Firestore**:
-   - Open Firebase Console → Firestore
-   - Go to `users/{your-uid}`
-   - Check `wallet` field value
-
-2. **Check for transaction errors**:
-   - Look in browser console
-   - Check for failed transaction messages
-
-3. **Manual correction** (if needed):
-   - Go to Firebase Console
-   - Edit user document
-   - Update `wallet` field
-
-4. **Implement transactions properly**:
-   - Always use Firestore transactions
-   - Never update wallet with plain `updateDoc()`
-
-### Issue: Task stuck "in-progress"
-
-**Symptoms:**
-- Can't complete task
-- Can't cancel claim
-- Task never completes
-
-**Solutions:**
-
-1. **Check task status in Firestore**:
-   - Verify status is "in-progress"
-   - Verify claimedBy matches your UID
-
-2. **Complete task manually**:
-   ```javascript
-   // In browser console (admin only)
-   await updateDoc(doc(db, 'tasks', 'TASK_ID'), {
-     status: 'completed',
-     completedAt: serverTimestamp()
-   });
-   ```
-
-3. **Delete and recreate** (if poster):
-   - Delete the stuck task
-   - Create a new one
+- [ ] Are there tasks in Firestore? Check Firebase Console → **Firestore → tasks** collection
+- [ ] Do the tasks have `status: "open"`? Completed/claimed tasks do not appear on the map
+- [ ] Is the real-time listener active? Check Console for `onSnapshot` errors
+- [ ] Zoom out — markers may be outside the current viewport
+- [ ] Check that tasks have a valid `location.lat` and `location.lng`
 
 ---
 
-## 🔒 Firestore Permission Errors
+## 💰 Wallet & Task Issues
 
-### Issue: "Missing or insufficient permissions"
+### Insufficient balance when posting
 
-**Symptoms:**
+**Fix:** Either reduce the reward amount or set it to `0`. Your current balance is shown next to the reward input field.
+
+### Can't claim a task
+
+| Error message | Cause | Fix |
+|---|---|---|
+| No claim button visible | You are the poster of this task | Find a different task to claim |
+| Claim button unresponsive | Firestore permission error | Check console; ensure you are signed in |
+| Task disappears after claim | Normal — check **My Tasks → Claimed** tab | — |
+
+### Wallet balance not updating after task completion
+
+**Diagnosis steps:**
+
+1. Check Firestore Console: navigate to `users/{your-uid}` — has the `balance` field updated?
+2. Check browser console for transaction errors
+3. Check that the task status is `"completed"` in Firestore
+
+**If the Firestore value is correct but the UI hasn't updated:** The `onSnapshot` listener on your user document should update the UI automatically. Hard-refresh the page.
+
+### Task stuck in `in-progress`
+
+If a task needs to be manually resolved (e.g. an assignee abandoned it), an administrator can update the Firestore document directly:
+
+```javascript
+// Firebase Console → Firestore → tasks → {taskId}
+// Change status field to "open" and clear assignee fields
 ```
-FirebaseError: Missing or insufficient permissions
-```
-
-**Solutions:**
-
-1. **Check if signed in**:
-   ```javascript
-   // In browser console
-   console.log(auth.currentUser);  // Should not be null
-   ```
-
-2. **Check security rules**:
-   - Go to Firebase Console → Firestore → Rules
-   - Verify rules allow your operation
-   - See [Security Guide](Security-Guide.md)
-
-3. **Test with open rules** (development only):
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /{document=**} {
-         allow read, write: if true;  // TESTING ONLY!
-       }
-     }
-   }
-   ```
-   ⚠️ **Never use in production!**
-
-4. **Check rule expiration**:
-   - Current rules may have expired
-   - Update timestamp in rules
-
-### Issue: "Document not found"
-
-**Symptoms:**
-```
-FirebaseError: [code=not-found]: Document not found
-```
-
-**Solutions:**
-
-1. **Verify document exists**:
-   - Check Firebase Console → Firestore
-   - Search for document ID
-
-2. **Check document path**:
-   ```javascript
-   // Correct
-   doc(db, "tasks", taskId)
-   
-   // Wrong
-   doc(db, "task", taskId)  // Missing 's'
-   ```
-
-3. **Check for deleted documents**:
-   - Document may have been deleted
-   - Check auto-deletion (24h rule)
 
 ---
 
-## 🌐 Network & Firebase Issues
+## 🔒 Firestore Rule Errors
 
-### Issue: "Network request failed"
+### `permission-denied` on task create
 
-**Symptoms:**
-```
-FirebaseError: [code=unavailable]: Network request failed
-```
+**Cause:** The `poster.id` field in the task document does not match `request.auth.uid`.
 
-**Solutions:**
-
-1. **Check internet connection**:
-   - Verify you're online
-   - Try loading other websites
-
-2. **Check Firebase status**:
-   - Visit [Firebase Status](https://status.firebase.google.com/)
-   - Check for outages
-
-3. **Check firewall/antivirus**:
-   - May be blocking Firebase
-   - Try disabling temporarily
-
-4. **Check CORS settings**:
-   - If using custom domain
-   - Verify CORS configuration
-
-### Issue: "Quota exceeded"
-
-**Symptoms:**
-```
-FirebaseError: [code=resource-exhausted]: Quota exceeded
+**Check:** In `tasks.js`, when calling `addDoc`, ensure the task object contains:
+```javascript
+poster: {
+  id:   auth.currentUser.uid,   // Must match the authenticated user
+  name: auth.currentUser.displayName
+}
 ```
 
-**Solutions:**
+### `permission-denied` on task update
 
-1. **Check Firebase usage**:
-   - Firebase Console → Usage
-   - You may have exceeded free tier limits:
-     - Reads: 50k/day
-     - Writes: 20k/day
-     - Deletes: 20k/day
+**Cause:** Neither `poster.id` nor `assignee.id` in the existing document matches your UID.
 
-2. **Optimize queries**:
-   - Add `.limit()` to queries
-   - Reduce listener updates
-   - Implement pagination
+---
 
-3. **Upgrade plan** (if needed):
-   - Switch to Blaze (pay-as-you-go) plan
-   - Set budget alerts
+## 🌐 Network & Firebase Errors
+
+### `FirebaseError: [code=unavailable]` — network request failed
+
+**Checklist:**
+1. Check internet connection
+2. Check [Firebase Status Dashboard](https://status.firebase.google.com/)
+3. Check if a firewall or VPN is blocking `*.firebaseio.com` or `*.googleapis.com`
+4. Try disabling browser extensions (ad blockers sometimes block Firebase)
+
+### `FirebaseError: [code=resource-exhausted]` — quota exceeded
+
+**Cause:** Your Firebase project has exceeded the free-tier daily limits:
+- Reads: 50,000/day
+- Writes: 20,000/day
+- Deletes: 20,000/day
+
+**Fix:**
+1. Add `.limit(50)` to Firestore queries to reduce read volume
+2. Consider upgrading to the Blaze (pay-as-you-go) plan with budget alerts
+3. Check Firebase Console → **Usage** to identify which collection is being over-read
 
 ---
 
 ## 🖥️ Browser-Specific Issues
 
-### Chrome
-
-**Issue**: Service Worker errors
-**Solution**: Clear Application data (DevTools → Application → Clear storage)
-
-**Issue**: Camera/location always denied
-**Solution**: Settings → Privacy → Site Settings → Reset permissions
-
-### Firefox
-
-**Issue**: ES modules not loading
-**Solution**: Ensure `type="module"` in script tags
-
-**Issue**: IndexedDB quota errors
-**Solution**: Settings → Privacy → Clear Data → Cookies and Site Data
-
-### Safari
-
-**Issue**: Map tiles not loading
-**Solution**: Safari → Preferences → Privacy → Disable "Prevent cross-site tracking"
-
-**Issue**: Geolocation not working
-**Solution**: Safari → Preferences → Websites → Location → Allow
-
-### Mobile Browsers
-
-**Issue**: Bottom navigation covered by device nav bar
-**Solution**: Add safe area insets (already implemented in CSS)
-
-**Issue**: Map gestures conflict with page scroll
-**Solution**: Use two-finger gestures on map
+| Browser | Issue | Fix |
+|---|---|---|
+| **Chrome** | Service Worker caching stale JS | DevTools → Application → Storage → Clear site data |
+| **Firefox** | ES modules not loading | Ensure all `<script>` tags have `type="module"` |
+| **Safari** | Map tiles not loading | Safari → Settings → Websites → Cross-website tracking → Allow for site |
+| **Safari** | Geolocation denied | Safari → Settings → Websites → Location → Allow |
+| **Mobile Chrome** | Bottom nav behind device bar | Safe-area insets are already applied via CSS — try refreshing |
 
 ---
 
-## 🔍 Debugging Tools
+## 🔧 Debugging Tools
 
-### Browser Console
+### Browser DevTools
 
-Open DevTools (F12) and check:
+| Tab | What to check |
+|---|---|
+| **Console** | JavaScript errors, Firebase SDK messages |
+| **Network** | Failed requests to Firestore (`/google.firestore.v1.Firestore`) |
+| **Application** | IndexedDB (Firebase Auth tokens), Local Storage, Service Workers |
 
-1. **Console Tab**: JavaScript errors and logs
-2. **Network Tab**: API calls and responses
-3. **Application Tab**: Cookies, Local Storage, IndexedDB
+### Firebase Emulator Suite
 
-### Firebase Emulator
-
-For local testing:
+For isolated local testing without touching production data:
 
 ```bash
-firebase emulators:start
+firebase emulators:start --only auth,firestore
+# UI available at http://localhost:4000
 ```
 
-Benefits:
-- Test without affecting production data
-- No cost for operations
-- Faster development cycle
+Add to `firebase-config.js` when using emulators:
+```javascript
+import { connectAuthEmulator }      from "...firebase-auth.js";
+import { connectFirestoreEmulator } from "...firebase-firestore.js";
 
-### Firestore Console
+connectAuthEmulator(auth, "http://localhost:9099");
+connectFirestoreEmulator(db, "localhost", 8080);
+```
 
-Check data directly:
-- Firebase Console → Firestore Database
-- View collections and documents
-- Manually edit data
-- Check indexes
+### Firestore Rules Playground
+
+In Firebase Console → **Firestore → Rules → Rules Playground**, you can simulate read/write operations as a specific user to verify your security rules.
 
 ---
 
 ## 📞 Getting More Help
 
-If your issue isn't listed here:
+If your issue is not listed here:
 
-1. **Search existing issues**: [GitHub Issues](https://github.com/Kaelith69/SideQuest/issues)
-2. **Check the FAQ**: [FAQ](FAQ.md)
-3. **Open a new issue**: Include:
-   - Clear description of problem
+1. **Search existing issues:** [github.com/Kaelith69/SideQuest/issues](https://github.com/Kaelith69/SideQuest/issues)
+2. **Open a new issue** with:
+   - Clear description of the problem
    - Steps to reproduce
-   - Expected vs actual behavior
-   - Browser and device info
-   - Console error messages (if any)
-   - Screenshots (if relevant)
+   - Expected vs actual behaviour
+   - Browser, OS, device type
+   - Full console error message (copy-paste, not screenshot if possible)
 
 ---
 
-## 🛠️ Preventive Measures
+[← Home](Home.md) | [Roadmap →](Roadmap.md)
 
-Avoid issues by following best practices:
-
-- ✅ Always test in development first
-- ✅ Keep Firebase dependencies updated
-- ✅ Use proper security rules
-- ✅ Implement error handling
-- ✅ Test on multiple browsers
-- ✅ Monitor Firebase usage
-- ✅ Keep backups of data
-- ✅ Document custom changes
-
----
-
-[← Back to Home](Home.md) | [Next: FAQ →](FAQ.md)
