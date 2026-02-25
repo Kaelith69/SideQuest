@@ -332,4 +332,4 @@ SideQuest has no global state library. State is managed via:
 
 ---
 
-[← Home](Home.md) | [Installation →](Installation.md)
+[← Home](Home) | [Installation →](Installation)

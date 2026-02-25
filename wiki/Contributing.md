@@ -186,7 +186,7 @@ Open a [GitHub Issue](https://github.com/Kaelith69/SideQuest/issues/new) with th
 3. Any alternatives you considered
 4. Potential impact on existing users
 
-Check [Roadmap](Roadmap.md) first — the feature may already be planned.
+Check [Roadmap](Roadmap) first — the feature may already be planned.
 
 ---
 
@@ -200,8 +200,8 @@ By contributing, you agree that your contributions will be licensed under the **
 
 - Open a [Discussion](https://github.com/Kaelith69/SideQuest/discussions) for questions
 - Comment on the relevant Issue or PR
-- Check [Troubleshooting](Troubleshooting.md) and [Architecture](Architecture.md) for technical questions
+- Check [Troubleshooting](Troubleshooting) and [Architecture](Architecture) for technical questions
 
 ---
 
-[← Privacy](Privacy.md) | [Roadmap →](Roadmap.md)
+[← Privacy](Privacy) | [Roadmap →](Roadmap)

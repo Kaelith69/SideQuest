@@ -51,7 +51,7 @@ You can still use SideQuest without location access, but you'll need to manually
 
 ### Why can't I just open index.html directly?
 
-Modern browsers block certain features (like ES modules) when files are opened directly due to CORS security policies. You must run a local web server. See the [Installation Guide](Installation-Guide.md) for details.
+Modern browsers block certain features (like ES modules) when files are opened directly due to CORS security policies. You must run a local web server. See the [Installation Guide](Installation) for details.
 
 ---
 
@@ -151,7 +151,7 @@ Not yet. Direct messaging is planned for a future update. For now, include conta
 ### Is my data secure?
 
 In the current development version, security is minimal. For production use:
-- Update Firestore security rules (see [Security Guide](Security-Guide.md))
+- Update Firestore security rules (see [Privacy & Security](Privacy))
 - Enable email verification
 - Set up proper authentication
 - Use HTTPS
@@ -165,7 +165,7 @@ Yes! SideQuest is open-source. You can:
 - Use your own Firebase project
 - Modify the code as needed (MIT License)
 
-See [Deployment Guide](Deployment-Guide.md) for details.
+See [Installation Guide](Installation) for details.
 
 ### Does SideQuest work offline?
 
@@ -290,7 +290,7 @@ Absolutely! SideQuest is open-source and welcomes contributions:
 - Documentation updates
 - Feature suggestions
 
-See [Development Guide](Development-Guide.md) for details.
+See [Contributing Guide](Contributing) for details.
 
 ### I have a feature idea. Where do I share it?
 
@@ -307,7 +307,7 @@ See [Development Guide](Development-Guide.md) for details.
 4. Test thoroughly
 5. Submit a pull request
 
-See [Development Guide](Development-Guide.md) for detailed instructions.
+See [Contributing Guide](Contributing) for detailed instructions.
 
 ---
 
@@ -315,7 +315,7 @@ See [Development Guide](Development-Guide.md) for detailed instructions.
 
 ### What features are coming next?
 
-Check the [Roadmap](Roadmap.md) for planned features, including:
+Check the [Roadmap](Roadmap) for planned features, including:
 - Direct messaging between users
 - Task editing
 - Payment gateway integration
@@ -342,11 +342,11 @@ No decisions have been made yet. Community input is welcome!
 
 ## Still Have Questions?
 
-- Check the [User Guide](User-Guide.md) for detailed instructions
-- Read the [Troubleshooting Guide](Troubleshooting.md) for common issues
+- Check the [Usage Guide](Usage) for detailed instructions
+- Read the [Troubleshooting Guide](Troubleshooting) for common issues
 - Search [existing issues](https://github.com/Kaelith69/SideQuest/issues) on GitHub
 - Open a new issue if your question isn't answered
 
 ---
 
-[← Back to Home](Home.md)
+[← Back to Home](Home)

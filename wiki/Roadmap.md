@@ -146,7 +146,7 @@ This roadmap is a **living document** and subject to change based on community f
 
 ---
 
-[← Home](Home.md) | [Troubleshooting →](Troubleshooting.md)
+[← Home](Home) | [Troubleshooting →](Troubleshooting)
 
 ---
 
