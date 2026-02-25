@@ -281,5 +281,5 @@ If your issue is not listed here:
 
 ---
 
-[← Home](Home.md) | [Roadmap →](Roadmap.md)
+[← Home](Home) | [Roadmap →](Roadmap)
 

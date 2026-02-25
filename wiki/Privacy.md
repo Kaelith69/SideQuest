@@ -155,4 +155,4 @@ If you are running a production instance of SideQuest:
 
 ---
 
-[← Home](Home.md) | [Contributing →](Contributing.md)
+[← Home](Home) | [Contributing →](Contributing)

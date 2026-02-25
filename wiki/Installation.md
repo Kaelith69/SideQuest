@@ -231,8 +231,8 @@ After completing the setup, verify each item:
 | Map shows blank area | CDN blocked / offline | Check internet connection; try a different DNS |
 | Geolocation denied | Permission not granted | Click the lock icon in the browser address bar → Allow location |
 
-See [Troubleshooting](Troubleshooting.md) for more detailed diagnosis steps.
+See [Troubleshooting](Troubleshooting) for more detailed diagnosis steps.
 
 ---
 
-[← Home](Home.md) | [Usage →](Usage.md)
+[← Home](Home) | [Usage →](Usage)

@@ -252,4 +252,4 @@ Lists all tasks you have claimed or are working on:
 
 ---
 
-[← Installation](Installation.md) | [Architecture →](Architecture.md)
+[← Installation](Installation) | [Architecture →](Architecture)

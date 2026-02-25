@@ -72,23 +72,23 @@
 
 | Page | Description |
 |---|---|
-| **[Installation](Installation.md)** | Clone, configure Firebase, deploy rules, serve locally |
-| **[Usage](Usage.md)** | Post tasks, claim tasks, search, filter, manage your profile |
+| **[Installation](Installation)** | Clone, configure Firebase, deploy rules, serve locally |
+| **[Usage](Usage)** | Post tasks, claim tasks, search, filter, manage your profile |
 
 ### Technical Reference
 
 | Page | Description |
 |---|---|
-| **[Architecture](Architecture.md)** | System design, component responsibilities, data flow, module internals |
-| **[Privacy](Privacy.md)** | Data collected, storage, retention, security rules, user rights |
+| **[Architecture](Architecture)** | System design, component responsibilities, data flow, module internals |
+| **[Privacy](Privacy)** | Data collected, storage, retention, security rules, user rights |
 
 ### Community
 
 | Page | Description |
 |---|---|
-| **[Contributing](Contributing.md)** | Branch naming, commit style, coding conventions, review process |
-| **[Roadmap](Roadmap.md)** | Planned features, version goals, long-term vision |
-| **[Troubleshooting](Troubleshooting.md)** | Diagnosis flowcharts, common errors, debugging tools |
+| **[Contributing](Contributing)** | Branch naming, commit style, coding conventions, review process |
+| **[Roadmap](Roadmap)** | Planned features, version goals, long-term vision |
+| **[Troubleshooting](Troubleshooting)** | Diagnosis flowcharts, common errors, debugging tools |
 
 ---
 
@@ -131,9 +131,9 @@ python -m http.server 8000
 
 - 🏠 [Main Repository](https://github.com/Kaelith69/SideQuest)
 - 🐛 [Report an Issue](https://github.com/Kaelith69/SideQuest/issues/new)
-- 📋 [View Roadmap](Roadmap.md)
-- 🔒 [Security & Privacy](Privacy.md)
-- 🤝 [Contribute](Contributing.md)
+- 📋 [View Roadmap](Roadmap)
+- 🔒 [Security & Privacy](Privacy)
+- 🤝 [Contribute](Contributing)
 
 ---
 
