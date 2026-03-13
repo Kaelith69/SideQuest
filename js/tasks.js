@@ -240,13 +240,18 @@ if (submitRatingBtn) {
                 if (assigneeSnap.exists()) {
                     const currentBal = assigneeSnap.data().balance || 0;
                     const reward = taskData.reward.amount || 0;
-                    transaction.update(assigneeRef, { balance: currentBal + reward });
+                    transaction.update(assigneeRef, { 
+                        balance: currentBal + reward,
+                        lastPayoutTaskId: currentRatingTask.id
+                    });
                 } else {
                     // Fallback if assignee has no wallet doc yet (create it)
                     transaction.set(assigneeRef, {
+                        name: taskData.assignee.name || "unknown",
                         balance: taskData.reward.amount || 0,
                         email: "unknown", // can't get this easily here, but balance is key
-                        createdAt: serverTimestamp()
+                        createdAt: serverTimestamp(),
+                        lastPayoutTaskId: currentRatingTask.id
                     });
                 }
 
