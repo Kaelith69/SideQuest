@@ -6,7 +6,7 @@ import {
     signOut,
     updateProfile
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { db } from './firebase-config.js';
 
 const loginForm = document.getElementById('login-form');
@@ -37,14 +37,19 @@ if (toggleAuthBtn) {
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
+        const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
+
+        if (!email || !password) {
+            showError('Please enter your email and password.');
+            return;
+        }
 
         try {
             await signInWithEmailAndPassword(auth, email, password);
             // Auth listener in app.js will handle redirect
         } catch (error) {
-            showError(error.message);
+            showError(getFriendlyAuthError(error.code));
         }
     });
 }
@@ -53,30 +58,43 @@ if (loginForm) {
 if (signupForm) {
     signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('signup-name').value;
-        const email = document.getElementById('signup-email').value;
+        const name = document.getElementById('signup-name').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
         const password = document.getElementById('signup-password').value;
+
+        // Client-side validation (mirrors Firestore rules)
+        if (name.length < 1 || name.length > 80) {
+            showError('Name must be between 1 and 80 characters.');
+            return;
+        }
+        if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showError('Please enter a valid email address.');
+            return;
+        }
+        if (password.length < 6) {
+            showError('Password must be at least 6 characters.');
+            return;
+        }
 
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
             // Update Auth Profile
-            await updateProfile(user, {
-                displayName: name
-            });
+            await updateProfile(user, { displayName: name });
 
-            // specific: Create User Doc with Wallet Balance (Demo Money)
+            // Create User Doc with serverTimestamp() — MUST match Firestore rules:
+            // validUserCreate requires createdAt is timestamp (Firebase Timestamp, not JS Date).
             await setDoc(doc(db, "users", user.uid), {
                 email: email,
                 name: name,
                 balance: 500, // Initial demo balance
-                createdAt: new Date()
+                createdAt: serverTimestamp()
             });
 
             // Auth listener in app.js will handle redirect
         } catch (error) {
-            showError(error.message);
+            showError(getFriendlyAuthError(error.code, error.message));
         }
     });
 }
@@ -90,7 +108,30 @@ export async function logout() {
     }
 }
 
+function getFriendlyAuthError(code, fallback) {
+    switch (code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+            return 'Invalid email or password.';
+        case 'auth/email-already-in-use':
+            return 'This email is already registered. Try signing in.';
+        case 'auth/weak-password':
+            return 'Password must be at least 6 characters.';
+        case 'auth/invalid-email':
+            return 'Please enter a valid email address.';
+        case 'auth/too-many-requests':
+            return 'Too many attempts. Please wait a moment and try again.';
+        case 'auth/network-request-failed':
+            return 'Network error. Please check your connection and try again.';
+        default:
+            return fallback
+                ? fallback.replace('Firebase:', '').trim()
+                : 'An unexpected error occurred. Please try again.';
+    }
+}
+
 function showError(msg) {
-    authError.textContent = msg.replace('Firebase:', '').trim();
+    authError.textContent = msg;
     authError.classList.remove('hidden');
 }

@@ -34,18 +34,15 @@ service cloud.firestore {
     }
 
     function validSelfUserUpdate(userId) {
+      // Only name, balance, and lastPayoutTaskId may be self-updated.
+      // email is identity-tied to Firebase Auth and must never be changed by the client directly.
       return isSelf(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'balance', 'lastPayoutTaskId'])
-      && (!('name' in request.resource.data) || validUserName(request.resource.data.name))
-      && (!('balance' in request.resource.data)
-        || (request.resource.data.balance is number
-          && request.resource.data.balance >= 0
-          && request.resource.data.balance <= 100000))
-      && (!('email' in request.resource.data)
-        || (request.resource.data.email is string
-          && request.resource.data.email.size() > 0
-          && request.resource.data.email.size() <= 320))
-      && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp)
+        && (!('name' in request.resource.data) || validUserName(request.resource.data.name))
+        && (!('balance' in request.resource.data)
+          || (request.resource.data.balance is number
+            && request.resource.data.balance >= 0
+            && request.resource.data.balance <= 100000))
         && (!('lastPayoutTaskId' in request.resource.data) || request.resource.data.lastPayoutTaskId is string);
     }
 
@@ -55,12 +52,14 @@ service cloud.firestore {
       let taskBefore = get(/databases/$(database)/documents/tasks/$(taskId));
       let taskAfter = getAfter(/databases/$(database)/documents/tasks/$(taskId));
       let previousBalance = resource.data.balance is number ? resource.data.balance : 0;
+      let rewardAmount = taskBefore.data.reward.amount;
 
       return isSignedIn()
         && request.auth.uid != userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'lastPayoutTaskId'])
         && request.resource.data.balance is number
-        && request.resource.data.balance >= previousBalance
+        // Exact equality: prevents over- or under-crediting
+        && request.resource.data.balance == previousBalance + rewardAmount
         && taskId is string
         && exists(taskPath)
         && existsAfter(taskPath)
@@ -68,8 +67,8 @@ service cloud.firestore {
         && taskAfter.data.status == 'completed'
         && taskBefore.data.poster.id == request.auth.uid
         && taskBefore.data.assignee.id == userId
-        && taskBefore.data.reward.amount is number
-        && request.resource.data.balance == previousBalance + taskBefore.data.reward.amount;
+        && rewardAmount is number
+        && rewardAmount >= 0;
     }
 
     function validPayoutCreditCreate(userId) {

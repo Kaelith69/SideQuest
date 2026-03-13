@@ -178,30 +178,26 @@ export function listenToUser(userId) {
     userUnsubscribe = onSnapshot(doc(db, "users", userId), async (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.data();
-            const balance = Number(data.balance || 0);
+            const balance = Number(data.balance);
             const user = auth.currentUser;
 
-            const hasValidEmail = typeof data.email === 'string' && data.email.trim().length > 0;
-            const hasValidName = typeof data.name === 'string' && data.name.trim().length > 0;
-            const hasValidCreatedAt = !!data.createdAt;
-            const needsRepair = !hasValidEmail || !hasValidName || !hasValidCreatedAt || Number.isNaN(balance);
-
-            if (needsRepair && user && user.uid === userId) {
-                await setDoc(doc(db, "users", userId), {
-                    email: hasValidEmail ? data.email : (user.email || "unknown@sidequest.local"),
-                    name: hasValidName ? data.name : (user.displayName || "User"),
-                    balance: Number.isFinite(balance) ? balance : 0,
-                    createdAt: hasValidCreatedAt ? data.createdAt : serverTimestamp()
-                }, { merge: true });
+            // Self-heal: only fix balance if it's corrupt. Never touch email/createdAt
+            // on an existing doc — those fields are not allowed by validSelfUserUpdate.
+            if (Number.isNaN(balance) && user && user.uid === userId) {
+                await updateDoc(doc(db, "users", userId), {
+                    balance: 0
+                });
             }
+
+            const safeBalance = Number.isFinite(balance) ? balance : 0;
 
             // Update Profile UI
             const balanceEl = document.getElementById('profile-wallet-balance');
-            if (balanceEl) balanceEl.textContent = `₹${balance.toFixed(2)}`;
+            if (balanceEl) balanceEl.textContent = `₹${safeBalance.toFixed(2)}`;
 
             // Update Create Modal UI
             const createBalanceEl = document.getElementById('create-task-balance');
-            if (createBalanceEl) createBalanceEl.textContent = `₹${balance.toFixed(2)}`;
+            if (createBalanceEl) createBalanceEl.textContent = `₹${safeBalance.toFixed(2)}`;
 
             return;
         }
@@ -209,13 +205,16 @@ export function listenToUser(userId) {
         const user = auth.currentUser;
         if (!user || user.uid !== userId) return;
 
-        // Self-heal for accounts created before users/{uid} documents existed.
+        // Doc does not exist at all — create it via validUserCreate path.
+        // Must include ALL required fields with correct types.
         await setDoc(doc(db, "users", userId), {
             email: user.email || "",
             name: user.displayName || "User",
             balance: 500,
             createdAt: serverTimestamp()
-        }, { merge: true });
+        });
+    }, (error) => {
+        console.error("User listener error:", error);
     });
 }
 
@@ -627,24 +626,13 @@ if (createTaskForm) {
                 const userDoc = await transaction.get(userDocRef);
 
                 let currentBalance = 0;
-                let isNewUser = false;
 
                 if (userDoc.exists()) {
                     currentBalance = Number(userDoc.data().balance || 0);
                 } else {
-                    isNewUser = true;
-                    // Demo wallet creation logic
+                    // New user: will be created with starting balance
                     currentBalance = 500;
                 }
-
-                const existing = userDoc.exists() ? userDoc.data() : {};
-                const normalizedEmail = (typeof existing.email === 'string' && existing.email.trim())
-                    ? existing.email
-                    : (user.email || "unknown@sidequest.local");
-                const normalizedName = (typeof existing.name === 'string' && existing.name.trim())
-                    ? existing.name
-                    : (user.displayName || user.email || "User");
-                const hasCreatedAt = !!existing.createdAt;
 
                 let rewardAmount = 0;
                 if (rewardRaw !== '') {
@@ -664,12 +652,20 @@ if (createTaskForm) {
 
                 const newBalance = currentBalance - rewardAmount;
 
-                transaction.set(userDocRef, {
-                    email: normalizedEmail,
-                    name: normalizedName,
-                    balance: newBalance,
-                    ...(hasCreatedAt ? {} : { createdAt: serverTimestamp() })
-                }, { merge: true });
+                if (userDoc.exists()) {
+                    // Existing user: only update balance — the ONLY field allowed by
+                    // validSelfUserUpdate. Writing email/createdAt here would cause permission-denied.
+                    transaction.update(userDocRef, { balance: newBalance });
+                } else {
+                    // New user: create full doc via validUserCreate path.
+                    const existing = userDoc.data ? userDoc.data() : {};
+                    transaction.set(userDocRef, {
+                        email: user.email || "unknown@sidequest.local",
+                        name: user.displayName || user.email || "User",
+                        balance: newBalance,
+                        createdAt: serverTimestamp()
+                    });
+                }
 
                 const newTaskRef = doc(collection(db, "tasks"));
                 createdTaskId = newTaskRef.id;
@@ -1021,20 +1017,26 @@ function openTaskDetail(task, dist) {
 
                         const selfUserRef = doc(db, "users", user.uid);
                         const selfUserSnap = await transaction.get(selfUserRef);
-                        const existingUser = selfUserSnap.exists() ? selfUserSnap.data() : {};
-                        const normalizedEmail = (typeof existingUser.email === 'string' && existingUser.email.trim())
-                            ? existingUser.email
-                            : (user.email || "unknown@sidequest.local");
-                        const normalizedName = (typeof existingUser.name === 'string' && existingUser.name.trim())
-                            ? existingUser.name
-                            : (user.displayName || user.email || "User");
 
-                        transaction.set(selfUserRef, {
-                            email: normalizedEmail,
-                            name: normalizedName,
-                            ...(existingUser.createdAt ? {} : { createdAt: serverTimestamp() }),
-                            ...(typeof existingUser.balance === 'number' ? {} : { balance: 0 })
-                        }, { merge: true });
+                        if (selfUserSnap.exists()) {
+                            // Existing user doc: no fields need changing for a claim.
+                            // validSelfUserUpdate only allows ['name', 'balance', 'lastPayoutTaskId'].
+                            // Do NOT touch email or createdAt — it would cause permission-denied.
+                            // If balance is missing/corrupt, fix it only.
+                            const existingBalance = selfUserSnap.data().balance;
+                            if (typeof existingBalance !== 'number') {
+                                transaction.update(selfUserRef, { balance: 0 });
+                            }
+                            // name field is consistent from auth — no update needed here.
+                        } else {
+                            // New user: create full doc via validUserCreate path.
+                            transaction.set(selfUserRef, {
+                                email: user.email || "unknown@sidequest.local",
+                                name: user.displayName || user.email || "User",
+                                balance: 0,
+                                createdAt: serverTimestamp()
+                            });
+                        }
 
                         transaction.update(taskRef, {
                             status: "in-progress",
