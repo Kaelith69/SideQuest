@@ -22,7 +22,8 @@ service cloud.firestore {
     function validUserCreate(userId) {
       return request.resource.data.keys().hasOnly(['email', 'name', 'balance', 'createdAt', 'lastPayoutTaskId'])
         && request.resource.data.email is string
-        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.email.size() > 0
+        && request.resource.data.email.size() <= 320
         && validUserName(request.resource.data.name)
         && request.resource.data.balance is number
         && request.resource.data.balance >= 0
@@ -34,39 +35,41 @@ service cloud.firestore {
 
     function validSelfUserUpdate(userId) {
       return isSelf(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'balance'])
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.createdAt == resource.data.createdAt
-        && (!('lastPayoutTaskId' in request.resource.data) || request.resource.data.lastPayoutTaskId == resource.data.lastPayoutTaskId)
-        && validUserName(request.resource.data.name)
-        && request.resource.data.balance is number
-        && request.resource.data.balance >= 0
-        && request.resource.data.balance <= 100000;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'balance', 'lastPayoutTaskId'])
+      && (!('name' in request.resource.data) || validUserName(request.resource.data.name))
+      && (!('balance' in request.resource.data)
+        || (request.resource.data.balance is number
+          && request.resource.data.balance >= 0
+          && request.resource.data.balance <= 100000))
+      && (!('email' in request.resource.data)
+        || (request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.email.size() <= 320))
+      && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp)
+        && (!('lastPayoutTaskId' in request.resource.data) || request.resource.data.lastPayoutTaskId is string);
     }
 
     function validPayoutCreditUpdate(userId) {
       let taskId = request.resource.data.lastPayoutTaskId;
+      let taskPath = /databases/$(database)/documents/tasks/$(taskId);
       let taskBefore = get(/databases/$(database)/documents/tasks/$(taskId));
       let taskAfter = getAfter(/databases/$(database)/documents/tasks/$(taskId));
+      let previousBalance = resource.data.balance is number ? resource.data.balance : 0;
 
       return isSignedIn()
         && request.auth.uid != userId
-        && resource.data.email is string
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.name == resource.data.name
-        && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'lastPayoutTaskId'])
         && request.resource.data.balance is number
-        && request.resource.data.balance >= resource.data.balance
+        && request.resource.data.balance >= previousBalance
         && taskId is string
-        && taskBefore.exists()
-        && taskAfter.exists()
+        && exists(taskPath)
+        && existsAfter(taskPath)
         && taskBefore.data.status == 'pending-confirmation'
         && taskAfter.data.status == 'completed'
         && taskBefore.data.poster.id == request.auth.uid
         && taskBefore.data.assignee.id == userId
         && taskBefore.data.reward.amount is number
-        && request.resource.data.balance == resource.data.balance + taskBefore.data.reward.amount;
+        && request.resource.data.balance == previousBalance + taskBefore.data.reward.amount;
     }
 
     function validLocation(loc) {
@@ -130,13 +133,7 @@ service cloud.firestore {
         && request.resource.data.status == 'in-progress'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignee'])
         && validAssignee(request.resource.data.assignee)
-        && request.resource.data.title == resource.data.title
-        && request.resource.data.description == resource.data.description
-        && request.resource.data.category == resource.data.category
-        && request.resource.data.reward == resource.data.reward
-        && request.resource.data.location == resource.data.location
-        && request.resource.data.poster == resource.data.poster
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && resource.data.poster.id != request.auth.uid;
     }
 
     function markDoneUpdate() {
@@ -144,15 +141,7 @@ service cloud.firestore {
         && resource.data.assignee is map
         && resource.data.assignee.id == request.auth.uid
         && request.resource.data.status == 'pending-confirmation'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-        && request.resource.data.assignee == resource.data.assignee
-        && request.resource.data.title == resource.data.title
-        && request.resource.data.description == resource.data.description
-        && request.resource.data.category == resource.data.category
-        && request.resource.data.reward == resource.data.reward
-        && request.resource.data.location == resource.data.location
-        && request.resource.data.poster == resource.data.poster
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
 
     function confirmAndRateUpdate() {
@@ -163,15 +152,7 @@ service cloud.firestore {
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
         && request.resource.data.completedAt is timestamp
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'rating', 'completedAt'])
-        && request.resource.data.assignee == resource.data.assignee
-        && request.resource.data.title == resource.data.title
-        && request.resource.data.description == resource.data.description
-        && request.resource.data.category == resource.data.category
-        && request.resource.data.reward == resource.data.reward
-        && request.resource.data.location == resource.data.location
-        && request.resource.data.poster == resource.data.poster
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'rating', 'completedAt']);
     }
 
     // Users: authenticated access with strict field validation.
