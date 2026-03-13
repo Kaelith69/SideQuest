@@ -14,3 +14,34 @@
 [debug] [2026-03-13T06:14:14.413Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/ducktie-4dc29:testIamPermissions [none]
 [debug] [2026-03-13T06:14:14.413Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/ducktie-4dc29:testIamPermissions  x-goog-user-project=ducktie-4dc29
 [debug] [2026-03-13T06:14:14.413Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/ducktie-4dc29:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-03-13T06:14:15.986Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/ducktie-4dc29:testIamPermissions 200
+[debug] [2026-03-13T06:14:15.986Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/ducktie-4dc29:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'ducktie-4dc29'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-03-13T06:14:15.991Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:15.992Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:15.992Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/ducktie-4dc29/databases/(default) [none]
+[debug] [2026-03-13T06:14:16.432Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/ducktie-4dc29/databases/(default) 200
+[debug] [2026-03-13T06:14:16.432Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/ducktie-4dc29/databases/(default) {"name":"projects/ducktie-4dc29/databases/(default)","uid":"8b0604c6-08bd-4e86-bc88-18cd3fbf7332","createTime":"2025-11-25T07:36:37.674304Z","updateTime":"2025-11-25T07:36:37.674304Z","locationId":"asia-south1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-03-13T05:14:15.216579Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"j","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IM6NrbqcnJMDMJb5yJzg4ZID"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-03-13T06:14:16.433Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:16.434Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:16.434Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29:test [none]
+[debug] [2026-03-13T06:14:16.434Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29:test [omitted]
+[debug] [2026-03-13T06:14:18.163Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29:test 200
+[debug] [2026-03-13T06:14:18.163Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29:test {"issues":[{"sourcePosition":{"fileName":"firestore.rules","line":62,"column":23,"currentOffset":2700,"endOffset":2705},"description":"Invalid function name: exists.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":63,"column":22,"currentOffset":2731,"endOffset":2736},"description":"Invalid function name: exists.","severity":"WARNING"}]}
+[warn] !  [W] 62:23 - Invalid function name: exists. 
+[warn] !  [W] 63:22 - Invalid function name: exists. 
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-03-13T06:14:18.165Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:18.166Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:18.166Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29/releases pageSize=10&pageToken=
+[debug] [2026-03-13T06:14:19.491Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29/releases 200
+[debug] [2026-03-13T06:14:19.492Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29/releases {"releases":[{"name":"projects/ducktie-4dc29/releases/cloud.firestore","rulesetName":"projects/ducktie-4dc29/rulesets/e9f77b54-e624-4f20-b052-939dcb71f33e","createTime":"2025-11-25T07:36:47.112811Z","updateTime":"2026-03-13T05:58:47.311212Z"}]}
+[debug] [2026-03-13T06:14:19.492Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:19.492Z] Checked if tokens are valid: true, expires at: 1773384434107
+[debug] [2026-03-13T06:14:19.492Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/ducktie-4dc29/rulesets/e9f77b54-e624-4f20-b052-939dcb71f33e [none]
