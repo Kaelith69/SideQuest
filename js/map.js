@@ -80,6 +80,9 @@ export function initMap(user) {
             console.error("Error getting location", error);
             // Fallback: Notify with default location so tasks appear
             notifyLocationUpdates({ lat: defaultLocation.lat, lng: defaultLocation.lng });
+        }, {
+            timeout: 10000,
+            maximumAge: 60000
         });
 
         // Watch for updates
@@ -89,6 +92,9 @@ export function initMap(user) {
             notifyLocationUpdates({ lat: latitude, lng: longitude });
         }, error => {
             // Watch error; usually ignorable if we handled initial
+        }, {
+            timeout: 10000,
+            maximumAge: 60000
         });
     } else {
         // No Geolocation support

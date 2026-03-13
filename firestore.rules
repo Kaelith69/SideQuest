@@ -47,36 +47,32 @@ service cloud.firestore {
     }
 
     function validPayoutCreditUpdate(userId) {
-      let taskId = request.resource.data.lastPayoutTaskId;
-      let taskPath = /databases/$(database)/documents/tasks/$(taskId);
-      let taskBefore = get(/databases/$(database)/documents/tasks/$(taskId));
-      let taskAfter = getAfter(/databases/$(database)/documents/tasks/$(taskId));
+      // IMPORTANT: Do NOT use `let` for get()/getAfter() — they are evaluated eagerly
+      // and crash the rule evaluator when taskId is null (e.g. simple balance updates).
+      // All cross-document reads must be inside the short-circuit && chain.
       let previousBalance = resource.data.balance is number ? resource.data.balance : 0;
-      let rewardAmount = taskBefore.data.reward.amount;
 
       return isSignedIn()
         && request.auth.uid != userId
+        // Validate the payout fields exist and are the right types FIRST
+        && 'lastPayoutTaskId' in request.resource.data
+        && request.resource.data.lastPayoutTaskId is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'lastPayoutTaskId'])
         && request.resource.data.balance is number
+        // Now it's safe to fetch the task document
+        && exists(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && existsAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'pending-confirmation'
+        && getAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'completed'
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.poster.id == request.auth.uid
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.assignee.id == userId
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount is number
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount >= 0
         // Exact equality: prevents over- or under-crediting
-        && request.resource.data.balance == previousBalance + rewardAmount
-        && taskId is string
-        && exists(taskPath)
-        && existsAfter(taskPath)
-        && taskBefore.data.status == 'pending-confirmation'
-        && taskAfter.data.status == 'completed'
-        && taskBefore.data.poster.id == request.auth.uid
-        && taskBefore.data.assignee.id == userId
-        && rewardAmount is number
-        && rewardAmount >= 0;
+        && request.resource.data.balance == previousBalance + get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount;
     }
 
     function validPayoutCreditCreate(userId) {
-      let taskId = request.resource.data.lastPayoutTaskId;
-      let taskPath = /databases/$(database)/documents/tasks/$(taskId);
-      let taskBefore = get(/databases/$(database)/documents/tasks/$(taskId));
-      let taskAfter = getAfter(/databases/$(database)/documents/tasks/$(taskId));
-
       return isSignedIn()
         && request.auth.uid != userId
         && request.resource.data.keys().hasOnly(['name', 'balance', 'createdAt', 'lastPayoutTaskId', 'email'])
@@ -89,15 +85,15 @@ service cloud.firestore {
         && request.resource.data.lastPayoutTaskId is string
         && request.resource.data.email is string
         && request.resource.data.email.size() <= 320
-        && taskId is string
-        && exists(taskPath)
-        && existsAfter(taskPath)
-        && taskBefore.data.status == 'pending-confirmation'
-        && taskAfter.data.status == 'completed'
-        && taskBefore.data.poster.id == request.auth.uid
-        && taskBefore.data.assignee.id == userId
-        && taskBefore.data.reward.amount is number
-        && request.resource.data.balance == taskBefore.data.reward.amount;
+        // Only fetch the task after confirming the taskId is a valid string
+        && exists(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && existsAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'pending-confirmation'
+        && getAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'completed'
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.poster.id == request.auth.uid
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.assignee.id == userId
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount is number
+        && request.resource.data.balance == get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount;
     }
 
     function validLocation(loc) {
@@ -173,10 +169,12 @@ service cloud.firestore {
     }
 
     function confirmAndRateUpdate() {
+      // Note: `rating is int` fails with the Firebase JS web SDK because it sends
+      // all JS numbers as doubleValue in the wire format. Use `is number` instead.
       return resource.data.status == 'pending-confirmation'
         && resource.data.poster.id == request.auth.uid
         && request.resource.data.status == 'completed'
-        && request.resource.data.rating is int
+        && request.resource.data.rating is number
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
         && request.resource.data.completedAt is timestamp

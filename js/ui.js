@@ -40,13 +40,23 @@ export function showToast(message, type = 'info') {
 
     // Remove after 3s
     setTimeout(() => {
+        if (!toast.parentNode) return;
         toast.classList.add('opacity-0', 'translate-y-4');
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => {
+            if (toast.parentNode) toast.remove();
+        }, 300);
     }, 3000);
 }
 
+// Ensure single binding per confirm modal
+let currentConfirmCleanup = null;
+
 // Confirmation Modal
 export function showConfirm(title, message, onConfirm) {
+    if (currentConfirmCleanup) {
+        currentConfirmCleanup();
+    }
+
     const modal = document.getElementById('confirmation-modal');
     if (!modal) {
         if (confirm(`${title}\n\n${message}`)) {
@@ -94,7 +104,12 @@ export function showConfirm(title, message, onConfirm) {
         confirmBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
         backdrop.removeEventListener('click', handleCancel);
+        if (currentConfirmCleanup === cleanup) {
+            currentConfirmCleanup = null;
+        }
     };
+    
+    currentConfirmCleanup = cleanup;
 
     confirmBtn.addEventListener('click', handleConfirm);
     cancelBtn.addEventListener('click', handleCancel);

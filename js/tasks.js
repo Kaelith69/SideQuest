@@ -16,6 +16,21 @@ import { updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { addMarker, getMapCenter, calculateDistance, clearMarkers, onUserLocationUpdate } from './map.js';
 import { showToast, showConfirm } from './ui.js';
 
+export function safeParseBalance(val) {
+    const num = Number(val);
+    return Number.isFinite(num) ? num : 0;
+}
+
+function getFirestoreErrorMessage(error, defaultMsg = "An error occurred") {
+    if (!error) return defaultMsg;
+    // Extract Firebase or internal error message
+    const msg = error.message || String(error);
+    if (msg.toLowerCase().includes('permission-denied') || msg.toLowerCase().includes('missing or insufficient permissions')) {
+        return "Permission denied. Please check your balance or task status.";
+    }
+    return msg.replace('Firebase: ', '').replace(' (auth/weak-password).', '');
+}
+
 // Modals
 const createModal = document.getElementById('create-modal');
 const detailModal = document.getElementById('task-detail-modal');
@@ -376,8 +391,10 @@ if (submitRatingBtn) {
                 const assigneeSnap = await transaction.get(assigneeRef);
 
                 if (assigneeSnap.exists()) {
-                    const currentBal = Number(assigneeSnap.data().balance || 0);
-                    const reward = Number(taskData.reward?.amount || 0);
+                    const rawBal = Number(assigneeSnap.data().balance);
+                    const currentBal = Number.isFinite(rawBal) ? rawBal : 0;
+                    const rawReward = Number(taskData.reward?.amount);
+                    const reward = Number.isFinite(rawReward) ? rawReward : 0;
                     transaction.update(assigneeRef, {
                         balance: currentBal + reward,
                         lastPayoutTaskId: currentRatingTask.id
@@ -628,7 +645,8 @@ if (createTaskForm) {
                 let currentBalance = 0;
 
                 if (userDoc.exists()) {
-                    currentBalance = Number(userDoc.data().balance || 0);
+                    const rawBal = Number(userDoc.data().balance);
+                    currentBalance = Number.isFinite(rawBal) ? rawBal : 0;
                 } else {
                     // New user: will be created with starting balance
                     currentBalance = 500;
@@ -1023,8 +1041,8 @@ function openTaskDetail(task, dist) {
                             // validSelfUserUpdate only allows ['name', 'balance', 'lastPayoutTaskId'].
                             // Do NOT touch email or createdAt — it would cause permission-denied.
                             // If balance is missing/corrupt, fix it only.
-                            const existingBalance = selfUserSnap.data().balance;
-                            if (typeof existingBalance !== 'number') {
+                            const rawExistingBal = Number(selfUserSnap.data().balance);
+                            if (!Number.isFinite(rawExistingBal)) {
                                 transaction.update(selfUserRef, { balance: 0 });
                             }
                             // name field is consistent from auth — no update needed here.
