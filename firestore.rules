@@ -3,24 +3,204 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can read any user doc, but only write their own
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAllowedCategory(category) {
+      return category in ['Help', 'Delivery', 'Social', 'Other'];
+    }
+
+    function validUserName(name) {
+      return name is string && name.size() >= 1 && name.size() <= 80;
+    }
+
+    function validUserCreate(userId) {
+      return request.resource.data.keys().hasOnly(['email', 'name', 'balance', 'createdAt', 'lastPayoutTaskId'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0
+        && request.resource.data.email.size() <= 320
+        && validUserName(request.resource.data.name)
+        && request.resource.data.balance is number
+        && request.resource.data.balance >= 0
+        && request.resource.data.balance <= 100000
+        && request.resource.data.createdAt is timestamp
+        && (!('lastPayoutTaskId' in request.resource.data) || request.resource.data.lastPayoutTaskId is string)
+        && isSelf(userId);
+    }
+
+    function validSelfUserUpdate(userId) {
+      // Only name, balance, and lastPayoutTaskId may be self-updated.
+      // email is identity-tied to Firebase Auth and must never be changed by the client directly.
+      return isSelf(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'balance', 'lastPayoutTaskId'])
+        && (!('name' in request.resource.data) || validUserName(request.resource.data.name))
+        && (!('balance' in request.resource.data)
+          || (request.resource.data.balance is number
+            && request.resource.data.balance >= 0
+            && request.resource.data.balance <= 100000))
+        && (!('lastPayoutTaskId' in request.resource.data) || request.resource.data.lastPayoutTaskId is string);
+    }
+
+    function validPayoutCreditUpdate(userId) {
+      // IMPORTANT: Do NOT use `let` for get()/getAfter() — they are evaluated eagerly
+      // and crash the rule evaluator when taskId is null (e.g. simple balance updates).
+      // All cross-document reads must be inside the short-circuit && chain.
+      let previousBalance = resource.data.balance is number ? resource.data.balance : 0;
+
+      return isSignedIn()
+        && request.auth.uid != userId
+        // Validate the payout fields exist and are the right types FIRST
+        && 'lastPayoutTaskId' in request.resource.data
+        && request.resource.data.lastPayoutTaskId is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'lastPayoutTaskId'])
+        && request.resource.data.balance is number
+        // Now it's safe to fetch the task document
+        && exists(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && existsAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'pending-confirmation'
+        && getAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'completed'
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.poster.id == request.auth.uid
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.assignee.id == userId
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount is number
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount >= 0
+        // Exact equality: prevents over- or under-crediting
+        && request.resource.data.balance == previousBalance + get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount;
+    }
+
+    function validPayoutCreditCreate(userId) {
+      return isSignedIn()
+        && request.auth.uid != userId
+        && request.resource.data.keys().hasOnly(['name', 'balance', 'createdAt', 'lastPayoutTaskId', 'email'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.balance is number
+        && request.resource.data.balance >= 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.lastPayoutTaskId is string
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320
+        // Only fetch the task after confirming the taskId is a valid string
+        && exists(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && existsAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId))
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'pending-confirmation'
+        && getAfter(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.status == 'completed'
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.poster.id == request.auth.uid
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.assignee.id == userId
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount is number
+        && request.resource.data.balance == get(/databases/$(database)/documents/tasks/$(request.resource.data.lastPayoutTaskId)).data.reward.amount;
+    }
+
+    function validLocation(loc) {
+      return loc is map
+        && loc.keys().hasOnly(['lat', 'lng'])
+        && loc.lat is number
+        && loc.lng is number
+        && loc.lat >= -90 && loc.lat <= 90
+        && loc.lng >= -180 && loc.lng <= 180;
+    }
+
+    function validReward(reward) {
+      return reward is map
+        && reward.keys().hasOnly(['amount', 'currency'])
+        && reward.amount is number
+        && reward.amount >= 0
+        && reward.amount <= 100000
+        && reward.currency == 'INR';
+    }
+
+    function validPoster(poster) {
+      return poster is map
+        && poster.keys().hasOnly(['id', 'name', 'avatar'])
+        && poster.id == request.auth.uid
+        && poster.name is string
+        && poster.name.size() >= 1
+        && poster.name.size() <= 120
+        && poster.avatar is string
+        && poster.avatar.size() <= 500;
+    }
+
+    function validAssignee(assignee) {
+      return assignee is map
+        && assignee.keys().hasAll(['id', 'name'])
+        && assignee.id == request.auth.uid
+        && assignee.name is string;
+    }
+
+    function validTaskCreate() {
+      return request.resource.data.keys().hasOnly([
+          'title', 'category', 'reward', 'description', 'location', 'status', 'poster', 'createdAt'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 3
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 5
+        && request.resource.data.description.size() <= 1000
+        && isAllowedCategory(request.resource.data.category)
+        && validReward(request.resource.data.reward)
+        && validLocation(request.resource.data.location)
+        && validPoster(request.resource.data.poster)
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function claimTaskUpdate() {
+      return resource.data.status == 'open'
+        && request.resource.data.status == 'in-progress'
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'assignee'])
+        && validAssignee(request.resource.data.assignee)
+        && resource.data.poster.id != request.auth.uid;
+    }
+
+    function markDoneUpdate() {
+      return resource.data.status == 'in-progress'
+        && resource.data.assignee is map
+        && resource.data.assignee.id == request.auth.uid
+        && request.resource.data.status == 'pending-confirmation'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    function confirmAndRateUpdate() {
+      // Note: `rating is int` fails with the Firebase JS web SDK because it sends
+      // all JS numbers as doubleValue in the wire format. Use `is number` instead.
+      return resource.data.status == 'pending-confirmation'
+        && resource.data.poster.id == request.auth.uid
+        && request.resource.data.status == 'completed'
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.completedAt is timestamp
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'rating', 'completedAt']);
+    }
+
+    // Users: authenticated access with strict field validation.
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow read: if isSignedIn();
+      allow create: if validUserCreate(userId) || validPayoutCreditCreate(userId);
+      allow update: if validSelfUserUpdate(userId) || validPayoutCreditUpdate(userId);
       allow delete: if false;
     }
 
-    // Tasks: authenticated users can read all; only poster can delete/update their own
+    // Tasks: authenticated reads, strict creates, and transition-based updates.
     match /tasks/{taskId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.poster.id == request.auth.uid;
-      allow update: if request.auth != null
-                    && (resource.data.poster.id == request.auth.uid
-                        || resource.data.assignee.id == request.auth.uid);
-      allow delete: if request.auth != null
-                    && resource.data.poster.id == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && validTaskCreate();
+      allow update: if isSignedIn() && (
+        claimTaskUpdate() ||
+        markDoneUpdate() ||
+        confirmAndRateUpdate()
+      );
+
+      // Allow poster to delete only while task is still open.
+      allow delete: if isSignedIn()
+                    && resource.data.poster.id == request.auth.uid
+                    && resource.data.status == 'open';
     }
   }
 }
