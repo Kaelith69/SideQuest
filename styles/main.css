@@ -1,7 +1,6 @@
 /* styles/main.css */
 
 /* MapLibre Canvas base */
-/* MapLibre Canvas base */
 .maplibregl-map {
     font-family: inherit;
     /* Prevent pull-to-refresh on mobile maps */
@@ -11,9 +10,7 @@
 /* Cross-browser Scrollbar Styling */
 /* Firefox */
 * {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
-    /* scrollbar thumb and track */
+    /* intentionally empty: cross-browser scrollbar styles are defined below */
 }
 
 /* Chrome, Edge, Safari */
@@ -41,8 +38,8 @@
 /* Glassmorphism Utilities (Tailwind handles most, but specific overrides here) */
 .glass {
     background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 

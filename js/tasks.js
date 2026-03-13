@@ -2,22 +2,34 @@
 import { db, auth } from './firebase-config.js';
 import {
     collection,
-    addDoc,
     updateDoc,
-    deleteDoc,
     doc,
     serverTimestamp,
     onSnapshot,
     query,
     orderBy,
-    where,
-    getDocs,
     runTransaction,
-    getDoc
+    getDoc,
+    setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { addMarker, getMapCenter, calculateDistance, clearMarkers, onUserLocationUpdate } from './map.js';
 import { showToast, showConfirm } from './ui.js';
+
+export function safeParseBalance(val) {
+    const num = Number(val);
+    return Number.isFinite(num) ? num : 0;
+}
+
+function getFirestoreErrorMessage(error, defaultMsg = "An error occurred") {
+    if (!error) return defaultMsg;
+    // Extract Firebase or internal error message
+    const msg = error.message || String(error);
+    if (msg.toLowerCase().includes('permission-denied') || msg.toLowerCase().includes('missing or insufficient permissions')) {
+        return "Permission denied. Please check your balance or task status.";
+    }
+    return msg.replace('Firebase: ', '').replace(' (auth/weak-password).', '');
+}
 
 // Modals
 const createModal = document.getElementById('create-modal');
@@ -60,6 +72,97 @@ let myTasksTab = 'posted';
 let currentRatingTask = null; // Task being rated
 let currentRatingValue = 0;
 
+const TASK_LIMITS = {
+    titleMin: 3,
+    titleMax: 100,
+    descMin: 5,
+    descMax: 1000,
+    rewardMin: 0,
+    rewardMax: 100000,
+    categories: new Set(['Help', 'Delivery', 'Social', 'Other'])
+};
+
+function getFirestoreErrorMessage(error, fallbackMessage) {
+    if (!error) return fallbackMessage;
+
+    if (error.code === 'permission-denied') {
+        return `${fallbackMessage}. Please refresh and ensure task data matches required limits.`;
+    }
+
+    if (error.code === 'unavailable') {
+        return 'Network unavailable. Please check your connection and retry.';
+    }
+
+    if (error.code === 'failed-precondition') {
+        return 'Operation blocked by data state. Refresh and try again.';
+    }
+
+    return `${fallbackMessage}: ${error.message || 'Unknown error'}`;
+}
+
+function validateTaskInput({ title, description, category, rewardAmount, userBalance }) {
+    if (title.length < TASK_LIMITS.titleMin || title.length > TASK_LIMITS.titleMax) {
+        return `Title must be ${TASK_LIMITS.titleMin}-${TASK_LIMITS.titleMax} characters.`;
+    }
+
+    if (description.length < TASK_LIMITS.descMin || description.length > TASK_LIMITS.descMax) {
+        return `Description must be ${TASK_LIMITS.descMin}-${TASK_LIMITS.descMax} characters.`;
+    }
+
+    if (!TASK_LIMITS.categories.has(category)) {
+        return 'Please select a valid category.';
+    }
+
+    if (!Number.isFinite(rewardAmount)) {
+        return 'Reward amount is invalid.';
+    }
+
+    if (rewardAmount < TASK_LIMITS.rewardMin || rewardAmount > TASK_LIMITS.rewardMax) {
+        return `Reward must be between ₹${TASK_LIMITS.rewardMin} and ₹${TASK_LIMITS.rewardMax}.`;
+    }
+
+    if (userBalance < rewardAmount) {
+        return `Insufficient funds. You have ₹${userBalance.toFixed(2)}.`;
+    }
+
+    return null;
+}
+
+function pseudoTimestampNow() {
+    return {
+        toDate: () => new Date()
+    };
+}
+
+function upsertTaskInState(task) {
+    const index = allTasks.findIndex((t) => t.id === task.id);
+    if (index === -1) {
+        allTasks.unshift(task);
+    } else {
+        allTasks[index] = { ...allTasks[index], ...task };
+    }
+}
+
+function patchTaskInState(taskId, patch) {
+    allTasks = allTasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t));
+}
+
+function removeTaskFromState(taskId) {
+    allTasks = allTasks.filter((t) => t.id !== taskId);
+}
+
+function refreshDerivedViews() {
+    updateMarkers();
+
+    if (!myTasksPage.classList.contains('hidden')) {
+        renderMyTasks();
+    }
+
+    if (!profilePage.classList.contains('hidden')) {
+        renderProfile();
+    }
+}
+
 // Subscribe to location updates
 onUserLocationUpdate((loc) => {
     currentUserLocation = loc;
@@ -67,23 +170,66 @@ onUserLocationUpdate((loc) => {
 });
 
 let userUnsubscribe = null;
+let tasksUnsubscribe = null;
+
+export function stopTaskRealtimeListeners() {
+    if (userUnsubscribe) {
+        userUnsubscribe();
+        userUnsubscribe = null;
+    }
+
+    if (tasksUnsubscribe) {
+        tasksUnsubscribe();
+        tasksUnsubscribe = null;
+    }
+
+    allTasks = [];
+    clearMarkers();
+}
 
 export function listenToUser(userId) {
     if (userUnsubscribe) userUnsubscribe();
 
-    userUnsubscribe = onSnapshot(doc(db, "users", userId), (doc) => {
-        if (doc.exists()) {
-            const data = doc.data();
-            const balance = data.balance || 0;
+    userUnsubscribe = onSnapshot(doc(db, "users", userId), async (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            const balance = Number(data.balance);
+            const user = auth.currentUser;
+
+            // Self-heal: only fix balance if it's corrupt. Never touch email/createdAt
+            // on an existing doc — those fields are not allowed by validSelfUserUpdate.
+            if (Number.isNaN(balance) && user && user.uid === userId) {
+                await updateDoc(doc(db, "users", userId), {
+                    balance: 0
+                });
+            }
+
+            const safeBalance = Number.isFinite(balance) ? balance : 0;
 
             // Update Profile UI
             const balanceEl = document.getElementById('profile-wallet-balance');
-            if (balanceEl) balanceEl.textContent = `₹${balance.toFixed(2)}`;
+            if (balanceEl) balanceEl.textContent = `₹${safeBalance.toFixed(2)}`;
 
             // Update Create Modal UI
             const createBalanceEl = document.getElementById('create-task-balance');
-            if (createBalanceEl) createBalanceEl.textContent = `₹${balance}`;
+            if (createBalanceEl) createBalanceEl.textContent = `₹${safeBalance.toFixed(2)}`;
+
+            return;
         }
+
+        const user = auth.currentUser;
+        if (!user || user.uid !== userId) return;
+
+        // Doc does not exist at all — create it via validUserCreate path.
+        // Must include ALL required fields with correct types.
+        await setDoc(doc(db, "users", userId), {
+            email: user.email || "",
+            name: user.displayName || "User",
+            balance: 500,
+            createdAt: serverTimestamp()
+        });
+    }, (error) => {
+        console.error("User listener error:", error);
     });
 }
 
@@ -166,6 +312,7 @@ if (saveProfileBtn) {
 
         try {
             await updateProfile(user, { displayName: newName });
+            await setDoc(doc(db, "users", user.uid), { name: newName }, { merge: true });
 
             // Update UI
             document.getElementById('profile-name').textContent = newName;
@@ -198,6 +345,8 @@ if (starContainer) {
 }
 
 function updateStarsUI(val) {
+    if (!starContainer) return;
+
     const stars = starContainer.querySelectorAll('.star-btn');
     stars.forEach(s => {
         const v = parseInt(s.getAttribute('data-value'));
@@ -230,22 +379,33 @@ if (submitRatingBtn) {
                 if (!taskSnap.exists()) throw new Error("Task not found");
 
                 const taskData = taskSnap.data();
-                if (taskData.status === 'completed') throw new Error("Task already completed");
+                if (taskData.status !== 'pending-confirmation') {
+                    throw new Error("Task is not ready for confirmation");
+                }
 
                 // Credit Assignee
-                const assigneeId = taskData.assignee.id;
+                const assigneeId = taskData.assignee?.id;
+                if (!assigneeId) throw new Error("Assignee not found for this task");
+
                 const assigneeRef = doc(db, "users", assigneeId);
                 const assigneeSnap = await transaction.get(assigneeRef);
 
                 if (assigneeSnap.exists()) {
-                    const currentBal = assigneeSnap.data().balance || 0;
-                    const reward = taskData.reward.amount || 0;
-                    transaction.update(assigneeRef, { balance: currentBal + reward });
+                    const rawBal = Number(assigneeSnap.data().balance);
+                    const currentBal = Number.isFinite(rawBal) ? rawBal : 0;
+                    const rawReward = Number(taskData.reward?.amount);
+                    const reward = Number.isFinite(rawReward) ? rawReward : 0;
+                    transaction.update(assigneeRef, {
+                        balance: currentBal + reward,
+                        lastPayoutTaskId: currentRatingTask.id
+                    });
                 } else {
-                    // Fallback if assignee has no wallet doc yet (create it)
+                    const reward = Number(taskData.reward?.amount || 0);
                     transaction.set(assigneeRef, {
-                        balance: taskData.reward.amount || 0,
-                        email: "unknown", // can't get this easily here, but balance is key
+                        name: taskData.assignee?.name || "User",
+                        email: "",
+                        balance: reward,
+                        lastPayoutTaskId: currentRatingTask.id,
                         createdAt: serverTimestamp()
                     });
                 }
@@ -256,11 +416,19 @@ if (submitRatingBtn) {
                     completedAt: serverTimestamp()
                 });
             });
+
+            patchTaskInState(currentRatingTask.id, {
+                status: 'completed',
+                rating: currentRatingValue,
+                completedAt: pseudoTimestampNow()
+            });
+            refreshDerivedViews();
+
             showToast("Thanks for rating!", 'success');
             closeModals();
         } catch (e) {
             console.error(e);
-            showToast("Error submitting rating", 'error');
+            showToast(`Error submitting rating: ${e.message}`, 'error');
         } finally {
             submitRatingBtn.textContent = "Confirm & Rate";
             submitRatingBtn.disabled = false;
@@ -289,7 +457,7 @@ if (filterContainer) {
 // Search
 if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-        currentSearchQuery = e.target.value.toLowerCase();
+        currentSearchQuery = String(e.target?.value || '').toLowerCase().trim();
         updateMarkers();
     });
 }
@@ -452,10 +620,10 @@ if (createTaskForm) {
         submitBtn.textContent = 'Posting...';
         submitBtn.disabled = true;
 
-        const title = document.getElementById('task-title').value;
+        const title = document.getElementById('task-title').value.trim();
         const category = document.getElementById('task-category').value;
-        const reward = document.getElementById('task-reward').value;
-        const desc = document.getElementById('task-desc').value;
+        const rewardRaw = document.getElementById('task-reward').value.trim();
+        const desc = document.getElementById('task-desc').value.trim();
         const center = getMapCenter();
 
         const user = auth.currentUser;
@@ -467,52 +635,58 @@ if (createTaskForm) {
         }
 
         try {
+            let createdTaskId = null;
+            let createdRewardAmount = 0;
+
             await runTransaction(db, async (transaction) => {
                 const userDocRef = doc(db, "users", user.uid);
                 const userDoc = await transaction.get(userDocRef);
 
                 let currentBalance = 0;
-                let isNewUser = false;
 
                 if (userDoc.exists()) {
-                    currentBalance = userDoc.data().balance || 0;
+                    const rawBal = Number(userDoc.data().balance);
+                    currentBalance = Number.isFinite(rawBal) ? rawBal : 0;
                 } else {
-                    isNewUser = true;
-                    // Demo wallet creation logic
+                    // New user: will be created with starting balance
                     currentBalance = 500;
                 }
 
                 let rewardAmount = 0;
-                if (reward && reward.trim() !== '') {
-                    rewardAmount = parseFloat(reward);
+                if (rewardRaw !== '') {
+                    rewardAmount = Number.parseFloat(rewardRaw);
                 }
 
-                if (isNaN(rewardAmount)) {
-                    throw new Error("Invalid reward amount");
-                }
+                const validationError = validateTaskInput({
+                    title,
+                    description: desc,
+                    category,
+                    rewardAmount,
+                    userBalance: currentBalance
+                });
 
-                if (rewardAmount < 0) {
-                    throw new Error("Reward cannot be negative");
-                }
-
-                if (currentBalance < rewardAmount) {
-                    throw new Error(`Insufficient funds. You have ₹${currentBalance} but reward is ₹${rewardAmount}`);
-                }
+                if (validationError) throw new Error(validationError);
+                createdRewardAmount = rewardAmount;
 
                 const newBalance = currentBalance - rewardAmount;
 
-                if (isNewUser) {
+                if (userDoc.exists()) {
+                    // Existing user: only update balance — the ONLY field allowed by
+                    // validSelfUserUpdate. Writing email/createdAt here would cause permission-denied.
+                    transaction.update(userDocRef, { balance: newBalance });
+                } else {
+                    // New user: create full doc via validUserCreate path.
+                    const existing = userDoc.data ? userDoc.data() : {};
                     transaction.set(userDocRef, {
-                        email: user.email,
-                        name: user.displayName || "User",
+                        email: user.email || "unknown@sidequest.local",
+                        name: user.displayName || user.email || "User",
                         balance: newBalance,
                         createdAt: serverTimestamp()
                     });
-                } else {
-                    transaction.update(userDocRef, { balance: newBalance });
                 }
 
                 const newTaskRef = doc(collection(db, "tasks"));
+                createdTaskId = newTaskRef.id;
                 transaction.set(newTaskRef, {
                     title,
                     category,
@@ -522,19 +696,38 @@ if (createTaskForm) {
                     status: "open",
                     poster: {
                         id: user.uid,
-                        name: user.displayName || user.email,
+                        name: user.displayName || user.email || "User",
                         avatar: user.photoURL || ""
                     },
                     createdAt: serverTimestamp()
                 });
             });
 
+            upsertTaskInState({
+                id: createdTaskId,
+                title,
+                category,
+                reward: { amount: createdRewardAmount, currency: 'INR' },
+                description: desc,
+                location: { lat: center.lat, lng: center.lng },
+                status: 'open',
+                poster: {
+                    id: user.uid,
+                    name: user.displayName || user.email || 'User',
+                    avatar: user.photoURL || ''
+                },
+                createdAt: pseudoTimestampNow()
+            });
+
+            refreshDerivedViews();
+
             closeModals();
             createTaskForm.reset();
+            showToast('Task posted successfully!', 'success');
 
         } catch (error) {
             console.error("Error adding task: ", error);
-            showToast("Failed to post task: " + error.message, 'error');
+            showToast(getFirestoreErrorMessage(error, 'Failed to post task'), 'error');
         } finally {
             submitBtn.textContent = originalText;
             submitBtn.disabled = false;
@@ -546,17 +739,18 @@ if (createTaskForm) {
 let isTasksLoaded = false;
 
 export function listenForTasks() {
+    if (tasksUnsubscribe) tasksUnsubscribe();
+
     const q = query(collection(db, "tasks"), orderBy("createdAt", "desc"));
 
-    onSnapshot(q, (snapshot) => {
+    tasksUnsubscribe = onSnapshot(q, (snapshot) => {
         allTasks = [];
-        snapshot.forEach((doc) => {
-            const task = doc.data();
-            task.id = doc.id;
+        snapshot.forEach((taskDoc) => {
+            const task = taskDoc.data();
+            task.id = taskDoc.id;
 
-            // Auto-Cleanup: Filter out open tasks > 24 hours
-            if (task.status === 'open' && isOlderThan24h(task.createdAt, doc.id)) {
-                console.log("Auto-cleaning task", task.id);
+            // Filter old open tasks out of UI. Deletion should happen in trusted backend jobs.
+            if (task.status === 'open' && isOlderThan24h(task.createdAt)) {
                 return;
             }
 
@@ -574,22 +768,14 @@ export function listenForTasks() {
 
     }, (error) => {
         console.error("Firestore Error:", error);
+        showToast("Failed to load tasks. Please refresh.", 'error');
     });
 }
 
-function isOlderThan24h(timestamp, docId) {
-    if (!timestamp) return false;
-    const now = new Date();
-    // Firestore timestamp to date
-    const taskDate = timestamp.toDate();
-    const diffMs = now - taskDate;
-    const diffHours = diffMs / (1000 * 60 * 60);
-
-    if (diffHours >= 24) {
-        deleteDoc(doc(db, "tasks", docId)).catch(err => console.log("Cleanup error:", err));
-        return true;
-    }
-    return false;
+function isOlderThan24h(timestamp) {
+    if (!timestamp || typeof timestamp.toDate !== 'function') return false;
+    const diffMs = Date.now() - timestamp.toDate().getTime();
+    return diffMs >= 24 * 60 * 60 * 1000;
 }
 
 function updateMarkers() {
@@ -601,21 +787,28 @@ function updateMarkers() {
 
         if (currentCategoryFilter !== 'all' && task.category !== currentCategoryFilter) return;
 
+        const taskTitle = String(task.title || '').toLowerCase();
+        const taskDescription = String(task.description || '').toLowerCase();
+
         if (currentSearchQuery) {
-            const textMatch = task.title.toLowerCase().includes(currentSearchQuery) ||
-                task.description.toLowerCase().includes(currentSearchQuery);
+            const textMatch = taskTitle.includes(currentSearchQuery) ||
+                taskDescription.includes(currentSearchQuery);
             if (!textMatch) return;
         }
 
-        if (task.location) {
-            const dist = calculateDistance(
-                currentUserLocation.lat, currentUserLocation.lng,
-                task.location.lat, task.location.lng
-            );
+        const lat = Number(task.location?.lat);
+        const lng = Number(task.location?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-            if (dist <= 0.5) {
-                addMarker(task, (t) => openTaskDetail(t, dist));
-            }
+        const dist = calculateDistance(
+            currentUserLocation.lat,
+            currentUserLocation.lng,
+            lat,
+            lng
+        );
+
+        if (dist <= 0.5) {
+            addMarker(task, (t) => openTaskDetail(t, dist));
         }
     });
 }
@@ -640,9 +833,9 @@ function renderMyTasks() {
 
     const filtered = allTasks.filter(task => {
         if (myTasksTab === 'posted') {
-            return task.poster.id === user.uid;
+            return task.poster?.id === user.uid;
         } else {
-            return task.assignee && task.assignee.id === user.uid;
+            return task.assignee?.id === user.uid;
         }
     });
 
@@ -653,34 +846,60 @@ function renderMyTasks() {
     }
 
     filtered.forEach(task => {
-        const div = document.createElement('div');
-        div.className = 'bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4';
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4';
 
         let statusColor = 'text-gray-500';
         if (task.status === 'completed') statusColor = 'text-green-600 font-bold';
         if (task.status === 'pending-confirmation') statusColor = 'text-orange-500 font-bold';
 
-        div.innerHTML = `
-            <div class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">
-                ${getCategoryIcon(task.category)}
-            </div>
-            <div class="flex-1">
-                <h3 class="font-bold text-gray-900">${task.title}</h3>
-                <p class="text-sm ${statusColor}">${taskStatusLabel(task.status)} • ${task.reward.amount > 0 ? `₹${task.reward.amount}` : '<span class="text-green-600 font-medium">Volunteer</span>'}</p>
-                ${task.rating ? `<p class="text-xs text-yellow-500">★ ${task.rating}/5</p>` : ''}
-            </div>
-            <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">View</button>
-        `;
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl';
+        iconWrap.textContent = getCategoryIcon(task.category);
 
-        div.onclick = () => {
+        const body = document.createElement('div');
+        body.className = 'flex-1';
+
+        const titleEl = document.createElement('h3');
+        titleEl.className = 'font-bold text-gray-900';
+        titleEl.textContent = String(task.title || 'Untitled task');
+
+        const metaEl = document.createElement('p');
+        metaEl.className = `text-sm ${statusColor}`;
+        const rewardAmount = Number(task.reward?.amount || 0);
+        const rewardText = rewardAmount > 0 ? `₹${rewardAmount}` : 'Volunteer';
+        metaEl.textContent = `${taskStatusLabel(task.status)} • ${rewardText}`;
+
+        body.append(titleEl, metaEl);
+
+        if (task.rating) {
+            const ratingEl = document.createElement('p');
+            ratingEl.className = 'text-xs text-yellow-500';
+            ratingEl.textContent = `★ ${task.rating}/5`;
+            body.appendChild(ratingEl);
+        }
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium';
+        viewBtn.type = 'button';
+        viewBtn.textContent = 'View';
+
+        card.append(iconWrap, body, viewBtn);
+
+        card.onclick = () => {
             let dist = 0;
             if (currentUserLocation && task.location) {
-                dist = calculateDistance(currentUserLocation.lat, currentUserLocation.lng, task.location.lat, task.location.lng);
+                dist = calculateDistance(
+                    currentUserLocation.lat,
+                    currentUserLocation.lng,
+                    Number(task.location.lat),
+                    Number(task.location.lng)
+                );
             }
             openTaskDetail(task, dist);
         };
 
-        myTasksList.appendChild(div);
+        myTasksList.appendChild(card);
     });
 }
 
@@ -709,7 +928,6 @@ function openTaskDetail(task, dist) {
     document.getElementById('detail-time-dist').textContent = `${timeString} • ${dist.toFixed(2)} km away`;
 
     document.getElementById('detail-poster-name').textContent = task.poster.name;
-    document.getElementById('detail-poster-name').textContent = task.poster.name;
     const priceEl = document.getElementById('detail-price');
     if (task.reward.amount > 0) {
         priceEl.textContent = `₹${task.reward.amount}`;
@@ -733,37 +951,42 @@ function openTaskDetail(task, dist) {
 
     if (user && task.poster.id === user.uid) {
         // I am the POSTER
-        deleteBtn.classList.remove('hidden');
-        deleteBtn.onclick = async () => {
-            showConfirm("Delete Task?", "Costs will be refunded.", async () => {
-                try {
-                    await runTransaction(db, async (transaction) => {
-                        const taskRef = doc(db, "tasks", task.id);
-                        const taskSnap = await transaction.get(taskRef);
-                        if (!taskSnap.exists()) throw new Error("Task not found");
+        if (task.status === 'open') {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.onclick = async () => {
+                showConfirm("Delete Task?", "Costs will be refunded.", async () => {
+                    try {
+                        await runTransaction(db, async (transaction) => {
+                            const taskRef = doc(db, "tasks", task.id);
+                            const taskSnap = await transaction.get(taskRef);
+                            if (!taskSnap.exists()) throw new Error("Task not found");
 
-                        // Refund Poster
-                        const posterId = taskSnap.data().poster.id;
-                        const userRef = doc(db, "users", posterId);
-                        const userSnap = await transaction.get(userRef);
+                            // Refund Poster
+                            const posterId = taskSnap.data().poster.id;
+                            const userRef = doc(db, "users", posterId);
+                            const userSnap = await transaction.get(userRef);
 
-                        if (userSnap.exists()) {
-                            const currentBal = userSnap.data().balance || 0;
-                            const reward = taskSnap.data().reward.amount || 0;
-                            transaction.update(userRef, { balance: currentBal + reward });
-                        }
+                            if (userSnap.exists()) {
+                                const currentBal = Number(userSnap.data().balance || 0);
+                                const reward = Number(taskSnap.data().reward?.amount || 0);
+                                transaction.update(userRef, { balance: currentBal + reward });
+                            }
 
-                        transaction.delete(taskRef);
-                    });
+                            transaction.delete(taskRef);
+                        });
 
-                    closeModals();
-                    showToast("Task deleted & refunded", 'success');
-                } catch (e) {
-                    console.error(e);
-                    showToast("Delete failed: " + e.message, 'error');
-                }
-            });
-        };
+                        removeTaskFromState(task.id);
+                        refreshDerivedViews();
+
+                        closeModals();
+                        showToast("Task deleted & refunded", 'success');
+                    } catch (e) {
+                        console.error(e);
+                        showToast(getFirestoreErrorMessage(e, 'Delete failed'), 'error');
+                    }
+                });
+            };
+        }
 
         if (task.status === 'pending-confirmation') {
             claimBtn.classList.remove('hidden');
@@ -772,7 +995,14 @@ function openTaskDetail(task, dist) {
             claimBtn.onclick = () => {
                 currentRatingTask = task;
                 currentRatingValue = 0;
+                // Reset star and button state
                 updateStarsUI(0);
+                if (submitRatingBtn) {
+                    submitRatingBtn.disabled = true;
+                    submitRatingBtn.classList.remove('bg-primary', 'text-white');
+                    submitRatingBtn.classList.add('bg-gray-200', 'text-gray-400');
+                    submitRatingBtn.textContent = "Confirm & Rate";
+                }
                 ratingModal.classList.remove('hidden');
                 if (ratingModal.querySelector('#rating-modal-backdrop')) {
                     ratingModal.querySelector('#rating-modal-backdrop').classList.remove('opacity-0');
@@ -799,23 +1029,59 @@ function openTaskDetail(task, dist) {
                         const taskDoc = await transaction.get(taskRef);
                         if (!taskDoc.exists()) throw new Error("Task does not exist!");
                         if (taskDoc.data().status !== 'open') throw new Error("Task already claimed!");
+                        if (taskDoc.data().poster?.id === user.uid) {
+                            throw new Error("You cannot claim your own task.");
+                        }
+
+                        const selfUserRef = doc(db, "users", user.uid);
+                        const selfUserSnap = await transaction.get(selfUserRef);
+
+                        if (selfUserSnap.exists()) {
+                            // Existing user doc: no fields need changing for a claim.
+                            // validSelfUserUpdate only allows ['name', 'balance', 'lastPayoutTaskId'].
+                            // Do NOT touch email or createdAt — it would cause permission-denied.
+                            // If balance is missing/corrupt, fix it only.
+                            const rawExistingBal = Number(selfUserSnap.data().balance);
+                            if (!Number.isFinite(rawExistingBal)) {
+                                transaction.update(selfUserRef, { balance: 0 });
+                            }
+                            // name field is consistent from auth — no update needed here.
+                        } else {
+                            // New user: create full doc via validUserCreate path.
+                            transaction.set(selfUserRef, {
+                                email: user.email || "unknown@sidequest.local",
+                                name: user.displayName || user.email || "User",
+                                balance: 0,
+                                createdAt: serverTimestamp()
+                            });
+                        }
 
                         transaction.update(taskRef, {
                             status: "in-progress",
                             assignee: {
                                 id: user.uid,
-                                name: user.displayName || user.email
+                                name: user.displayName || user.email || "User"
                             }
                         });
                     });
+
+                    patchTaskInState(task.id, {
+                        status: 'in-progress',
+                        assignee: {
+                            id: user.uid,
+                            name: user.displayName || user.email || 'User'
+                        }
+                    });
+                    refreshDerivedViews();
+
                     closeModals();
                     showToast("Task successfully claimed!", 'success');
                 } catch (e) {
-                    showToast(e.message, 'error');
+                    showToast(getFirestoreErrorMessage(e, 'Failed to claim task'), 'error');
                     claimBtn.disabled = false;
                     claimBtn.textContent = "I'll do it!";
                     // Refresh modal if task changed? Ideally close it to force refresh from map
-                    if (e.message.includes("already claimed")) {
+                    if (String(e.message || '').toLowerCase().includes("already claimed")) {
                         setTimeout(closeModals, 1500);
                     }
                 }
@@ -828,9 +1094,15 @@ function openTaskDetail(task, dist) {
             claimBtn.onclick = async () => {
                 try {
                     await updateDoc(doc(db, "tasks", task.id), { status: "pending-confirmation" });
+
+                    patchTaskInState(task.id, { status: 'pending-confirmation' });
+                    refreshDerivedViews();
+
                     showToast("Marked as done! Wait for poster to confirm.", 'success');
                     closeModals();
-                } catch (e) { showToast("Error: " + e.message, 'error'); }
+                } catch (e) {
+                    showToast(getFirestoreErrorMessage(e, 'Failed to mark task as done'), 'error');
+                }
             };
         } else if (task.status === 'pending-confirmation' && task.assignee?.id === user?.uid) {
             claimBtn.classList.remove('hidden');
@@ -849,6 +1121,17 @@ function timeAgo(firebaseTimestamp) {
     if (!firebaseTimestamp) return '';
     const date = firebaseTimestamp.toDate();
     const seconds = Math.floor((new Date() - date) / 1000);
-    // ... simple implementation or use a library
-    return Math.floor(seconds / 60) + " min ago";
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hr ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
+    const years = Math.floor(days / 365);
+    return `${years} year${years !== 1 ? 's' : ''} ago`;
 }
