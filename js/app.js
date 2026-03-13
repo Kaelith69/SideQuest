@@ -2,7 +2,7 @@
 import { auth } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMap, flyToUserLocation } from './map.js';
-import { listenForTasks, listenToUser } from './tasks.js';
+import { listenForTasks, listenToUser, stopTaskRealtimeListeners } from './tasks.js';
 
 // DOM Elements
 const loadingScreen = document.getElementById('loading-screen');
@@ -50,11 +50,17 @@ function init() {
 }
 
 function showAuth() {
+    stopTaskRealtimeListeners();
+
     authPage.classList.remove('hidden');
     appPage.classList.add('hidden');
     // Ensure profile page is also hidden
     const profilePage = document.getElementById('profile-page');
     if (profilePage) profilePage.classList.add('hidden');
+
+    // Ensure My Tasks page is hidden after sign-out
+    const myTasksPage = document.getElementById('my-tasks-page');
+    if (myTasksPage) myTasksPage.classList.add('hidden');
 }
 
 function showApp(user) {

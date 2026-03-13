@@ -20,10 +20,16 @@ export function showToast(message, type = 'info') {
     }
 
     toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg shadow-black/20 text-white transform translate-y-10 opacity-0 transition-all duration-300 ${bgColors}`;
-    toast.innerHTML = `
-        <span class="text-lg">${icon}</span>
-        <span class="font-medium text-sm">${message}</span>
-    `;
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'text-lg';
+    iconEl.textContent = icon;
+
+    const messageEl = document.createElement('span');
+    messageEl.className = 'font-medium text-sm';
+    messageEl.textContent = String(message);
+
+    toast.append(iconEl, messageEl);
 
     container.appendChild(toast);
 
@@ -87,8 +93,7 @@ export function showConfirm(title, message, onConfirm) {
     const cleanup = () => {
         confirmBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
-        backdrop.replaceWith(backdrop.cloneNode(true)); // rapid cleanup of backdrop click
-        document.getElementById('confirm-backdrop').addEventListener('click', handleCancel); // re-attach clean
+        backdrop.removeEventListener('click', handleCancel);
     };
 
     confirmBtn.addEventListener('click', handleConfirm);

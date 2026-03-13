@@ -2,18 +2,15 @@
 import { db, auth } from './firebase-config.js';
 import {
     collection,
-    addDoc,
     updateDoc,
-    deleteDoc,
     doc,
     serverTimestamp,
     onSnapshot,
     query,
     orderBy,
-    where,
-    getDocs,
     runTransaction,
-    getDoc
+    getDoc,
+    setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { addMarker, getMapCenter, calculateDistance, clearMarkers, onUserLocationUpdate } from './map.js';
@@ -67,14 +64,30 @@ onUserLocationUpdate((loc) => {
 });
 
 let userUnsubscribe = null;
+let tasksUnsubscribe = null;
+
+export function stopTaskRealtimeListeners() {
+    if (userUnsubscribe) {
+        userUnsubscribe();
+        userUnsubscribe = null;
+    }
+
+    if (tasksUnsubscribe) {
+        tasksUnsubscribe();
+        tasksUnsubscribe = null;
+    }
+
+    allTasks = [];
+    clearMarkers();
+}
 
 export function listenToUser(userId) {
     if (userUnsubscribe) userUnsubscribe();
 
-    userUnsubscribe = onSnapshot(doc(db, "users", userId), (doc) => {
-        if (doc.exists()) {
-            const data = doc.data();
-            const balance = data.balance || 0;
+    userUnsubscribe = onSnapshot(doc(db, "users", userId), async (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            const balance = Number(data.balance || 0);
 
             // Update Profile UI
             const balanceEl = document.getElementById('profile-wallet-balance');
@@ -82,8 +95,21 @@ export function listenToUser(userId) {
 
             // Update Create Modal UI
             const createBalanceEl = document.getElementById('create-task-balance');
-            if (createBalanceEl) createBalanceEl.textContent = `₹${balance}`;
+            if (createBalanceEl) createBalanceEl.textContent = `₹${balance.toFixed(2)}`;
+
+            return;
         }
+
+        const user = auth.currentUser;
+        if (!user || user.uid !== userId) return;
+
+        // Self-heal for accounts created before users/{uid} documents existed.
+        await setDoc(doc(db, "users", userId), {
+            email: user.email || "",
+            name: user.displayName || "User",
+            balance: 500,
+            createdAt: serverTimestamp()
+        }, { merge: true });
     });
 }
 
@@ -166,6 +192,7 @@ if (saveProfileBtn) {
 
         try {
             await updateProfile(user, { displayName: newName });
+            await setDoc(doc(db, "users", user.uid), { name: newName }, { merge: true });
 
             // Update UI
             document.getElementById('profile-name').textContent = newName;
@@ -198,6 +225,8 @@ if (starContainer) {
 }
 
 function updateStarsUI(val) {
+    if (!starContainer) return;
+
     const stars = starContainer.querySelectorAll('.star-btn');
     stars.forEach(s => {
         const v = parseInt(s.getAttribute('data-value'));
@@ -230,24 +259,23 @@ if (submitRatingBtn) {
                 if (!taskSnap.exists()) throw new Error("Task not found");
 
                 const taskData = taskSnap.data();
-                if (taskData.status === 'completed') throw new Error("Task already completed");
+                if (taskData.status !== 'pending-confirmation') {
+                    throw new Error("Task is not ready for confirmation");
+                }
 
                 // Credit Assignee
-                const assigneeId = taskData.assignee.id;
+                const assigneeId = taskData.assignee?.id;
+                if (!assigneeId) throw new Error("Assignee not found for this task");
+
                 const assigneeRef = doc(db, "users", assigneeId);
                 const assigneeSnap = await transaction.get(assigneeRef);
 
                 if (assigneeSnap.exists()) {
-                    const currentBal = assigneeSnap.data().balance || 0;
-                    const reward = taskData.reward.amount || 0;
+                    const currentBal = Number(assigneeSnap.data().balance || 0);
+                    const reward = Number(taskData.reward?.amount || 0);
                     transaction.update(assigneeRef, { balance: currentBal + reward });
                 } else {
-                    // Fallback if assignee has no wallet doc yet (create it)
-                    transaction.set(assigneeRef, {
-                        balance: taskData.reward.amount || 0,
-                        email: "unknown", // can't get this easily here, but balance is key
-                        createdAt: serverTimestamp()
-                    });
+                    throw new Error("Assignee profile missing. Ask assignee to open the app once.");
                 }
 
                 transaction.update(taskRef, {
@@ -260,7 +288,7 @@ if (submitRatingBtn) {
             closeModals();
         } catch (e) {
             console.error(e);
-            showToast("Error submitting rating", 'error');
+            showToast(`Error submitting rating: ${e.message}`, 'error');
         } finally {
             submitRatingBtn.textContent = "Confirm & Rate";
             submitRatingBtn.disabled = false;
@@ -289,7 +317,7 @@ if (filterContainer) {
 // Search
 if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-        currentSearchQuery = e.target.value.toLowerCase();
+        currentSearchQuery = String(e.target?.value || '').toLowerCase().trim();
         updateMarkers();
     });
 }
@@ -546,17 +574,18 @@ if (createTaskForm) {
 let isTasksLoaded = false;
 
 export function listenForTasks() {
+    if (tasksUnsubscribe) tasksUnsubscribe();
+
     const q = query(collection(db, "tasks"), orderBy("createdAt", "desc"));
 
-    onSnapshot(q, (snapshot) => {
+    tasksUnsubscribe = onSnapshot(q, (snapshot) => {
         allTasks = [];
-        snapshot.forEach((doc) => {
-            const task = doc.data();
-            task.id = doc.id;
+        snapshot.forEach((taskDoc) => {
+            const task = taskDoc.data();
+            task.id = taskDoc.id;
 
-            // Auto-Cleanup: Filter out open tasks > 24 hours
-            if (task.status === 'open' && isOlderThan24h(task.createdAt, doc.id)) {
-                console.log("Auto-cleaning task", task.id);
+            // Filter old open tasks out of UI. Deletion should happen in trusted backend jobs.
+            if (task.status === 'open' && isOlderThan24h(task.createdAt)) {
                 return;
             }
 
@@ -574,22 +603,14 @@ export function listenForTasks() {
 
     }, (error) => {
         console.error("Firestore Error:", error);
+        showToast("Failed to load tasks. Please refresh.", 'error');
     });
 }
 
-function isOlderThan24h(timestamp, docId) {
-    if (!timestamp) return false;
-    const now = new Date();
-    // Firestore timestamp to date
-    const taskDate = timestamp.toDate();
-    const diffMs = now - taskDate;
-    const diffHours = diffMs / (1000 * 60 * 60);
-
-    if (diffHours >= 24) {
-        deleteDoc(doc(db, "tasks", docId)).catch(err => console.log("Cleanup error:", err));
-        return true;
-    }
-    return false;
+function isOlderThan24h(timestamp) {
+    if (!timestamp || typeof timestamp.toDate !== 'function') return false;
+    const diffMs = Date.now() - timestamp.toDate().getTime();
+    return diffMs >= 24 * 60 * 60 * 1000;
 }
 
 function updateMarkers() {
@@ -601,21 +622,28 @@ function updateMarkers() {
 
         if (currentCategoryFilter !== 'all' && task.category !== currentCategoryFilter) return;
 
+        const taskTitle = String(task.title || '').toLowerCase();
+        const taskDescription = String(task.description || '').toLowerCase();
+
         if (currentSearchQuery) {
-            const textMatch = task.title.toLowerCase().includes(currentSearchQuery) ||
-                task.description.toLowerCase().includes(currentSearchQuery);
+            const textMatch = taskTitle.includes(currentSearchQuery) ||
+                taskDescription.includes(currentSearchQuery);
             if (!textMatch) return;
         }
 
-        if (task.location) {
-            const dist = calculateDistance(
-                currentUserLocation.lat, currentUserLocation.lng,
-                task.location.lat, task.location.lng
-            );
+        const lat = Number(task.location?.lat);
+        const lng = Number(task.location?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-            if (dist <= 0.5) {
-                addMarker(task, (t) => openTaskDetail(t, dist));
-            }
+        const dist = calculateDistance(
+            currentUserLocation.lat,
+            currentUserLocation.lng,
+            lat,
+            lng
+        );
+
+        if (dist <= 0.5) {
+            addMarker(task, (t) => openTaskDetail(t, dist));
         }
     });
 }
@@ -640,9 +668,9 @@ function renderMyTasks() {
 
     const filtered = allTasks.filter(task => {
         if (myTasksTab === 'posted') {
-            return task.poster.id === user.uid;
+            return task.poster?.id === user.uid;
         } else {
-            return task.assignee && task.assignee.id === user.uid;
+            return task.assignee?.id === user.uid;
         }
     });
 
@@ -653,34 +681,60 @@ function renderMyTasks() {
     }
 
     filtered.forEach(task => {
-        const div = document.createElement('div');
-        div.className = 'bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4';
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4';
 
         let statusColor = 'text-gray-500';
         if (task.status === 'completed') statusColor = 'text-green-600 font-bold';
         if (task.status === 'pending-confirmation') statusColor = 'text-orange-500 font-bold';
 
-        div.innerHTML = `
-            <div class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">
-                ${getCategoryIcon(task.category)}
-            </div>
-            <div class="flex-1">
-                <h3 class="font-bold text-gray-900">${task.title}</h3>
-                <p class="text-sm ${statusColor}">${taskStatusLabel(task.status)} • ${task.reward.amount > 0 ? `₹${task.reward.amount}` : '<span class="text-green-600 font-medium">Volunteer</span>'}</p>
-                ${task.rating ? `<p class="text-xs text-yellow-500">★ ${task.rating}/5</p>` : ''}
-            </div>
-            <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">View</button>
-        `;
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl';
+        iconWrap.textContent = getCategoryIcon(task.category);
 
-        div.onclick = () => {
+        const body = document.createElement('div');
+        body.className = 'flex-1';
+
+        const titleEl = document.createElement('h3');
+        titleEl.className = 'font-bold text-gray-900';
+        titleEl.textContent = String(task.title || 'Untitled task');
+
+        const metaEl = document.createElement('p');
+        metaEl.className = `text-sm ${statusColor}`;
+        const rewardAmount = Number(task.reward?.amount || 0);
+        const rewardText = rewardAmount > 0 ? `₹${rewardAmount}` : 'Volunteer';
+        metaEl.textContent = `${taskStatusLabel(task.status)} • ${rewardText}`;
+
+        body.append(titleEl, metaEl);
+
+        if (task.rating) {
+            const ratingEl = document.createElement('p');
+            ratingEl.className = 'text-xs text-yellow-500';
+            ratingEl.textContent = `★ ${task.rating}/5`;
+            body.appendChild(ratingEl);
+        }
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium';
+        viewBtn.type = 'button';
+        viewBtn.textContent = 'View';
+
+        card.append(iconWrap, body, viewBtn);
+
+        card.onclick = () => {
             let dist = 0;
             if (currentUserLocation && task.location) {
-                dist = calculateDistance(currentUserLocation.lat, currentUserLocation.lng, task.location.lat, task.location.lng);
+                dist = calculateDistance(
+                    currentUserLocation.lat,
+                    currentUserLocation.lng,
+                    Number(task.location.lat),
+                    Number(task.location.lng)
+                );
             }
             openTaskDetail(task, dist);
         };
 
-        myTasksList.appendChild(div);
+        myTasksList.appendChild(card);
     });
 }
 
