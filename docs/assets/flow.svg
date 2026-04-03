@@ -1,0 +1,251 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" width="100%" role="img" aria-label="SideQuest task lifecycle flow diagram">
+
+  <defs>
+    <marker id="arr"      markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#6B7280"/>
+    </marker>
+    <marker id="arr-teal" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2DD4BF"/>
+    </marker>
+    <marker id="arr-red"  markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#F87171"/>
+    </marker>
+    <marker id="arr-amb"  markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#FBBF24"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="560" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="14" font-weight="700" fill="#E5E7EB">Task Lifecycle · SideQuest</text>
+
+  <!-- ── Column labels ─────────────────────────────────────────── -->
+  <text x="150" y="58" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B7280">AUTH</text>
+  <text x="450" y="58" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B7280">BROWSE &amp; POST</text>
+  <text x="750" y="58" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B7280">CLAIM &amp; COMPLETE</text>
+
+  <!-- Column dividers -->
+  <line x1="300" y1="45" x2="300" y2="540" stroke="#1F2937" stroke-width="1"/>
+  <line x1="600" y1="45" x2="600" y2="540" stroke="#1F2937" stroke-width="1"/>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ROW 1 — Start + Auth check                                  -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+
+  <!-- Start node -->
+  <rect x="80" y="70" width="140" height="44" rx="22" fill="#134E4A"/>
+  <text x="150" y="97" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">User visits SideQuest</text>
+
+  <!-- Arrow down from start -->
+  <line x1="150" y1="114" x2="150" y2="148" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Decision: Authenticated? (diamond) -->
+  <polygon points="150,150 220,186 150,222 80,186" fill="#78350F" stroke="#FBBF24" stroke-width="1.5"/>
+  <text x="150" y="183" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" font-weight="600" fill="#FBBF24">Authenticated?</text>
+
+  <!-- NO path: right to Login/Signup box -->
+  <line x1="220" y1="186" x2="290" y2="186" stroke="#F87171" stroke-width="1.5"
+        marker-end="url(#arr-red)"/>
+  <text x="255" y="180"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#F87171">No</text>
+
+  <!-- Login / Signup box (red path, col 2) -->
+  <rect x="310" y="162" width="155" height="48" rx="8" fill="#1C0A0A"/>
+  <text x="387" y="182" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#FCA5A5">Login / Sign Up</text>
+  <text x="387" y="198" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#F87171">Firebase Auth · email+password</text>
+
+  <!-- Login → Firebase Auth box -->
+  <line x1="465" y1="186" x2="512" y2="186" stroke="#F87171" stroke-width="1.5"
+        marker-end="url(#arr-red)"/>
+  <rect x="514" y="162" width="152" height="48" rx="8" fill="#1C0A0A"/>
+  <text x="590" y="182" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#FCA5A5">Firebase issues JWT</text>
+  <text x="590" y="198" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#F87171">token stored · 1h validity</text>
+
+  <!-- JWT → re-enter flow -->
+  <line x1="590" y1="210" x2="590" y2="246" stroke="#F87171" stroke-width="1.5"/>
+  <line x1="590" y1="246" x2="150" y2="246" stroke="#F87171" stroke-width="1.5"/>
+  <line x1="150" y1="246" x2="150" y2="222" stroke="#F87171" stroke-width="1.5"
+        marker-end="url(#arr-red)"/>
+  <text x="365" y="242"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#F87171">auth state changes → authenticated</text>
+
+  <!-- YES path down from diamond -->
+  <line x1="150" y1="222" x2="150" y2="274" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+  <text x="158" y="254"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#2DD4BF">Yes</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ROW 2 — Map View                                            -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+
+  <rect x="80" y="276" width="140" height="48" rx="8" fill="#134E4A"/>
+  <text x="150" y="297" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Map View</text>
+  <text x="150" y="313" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">task markers via onSnapshot</text>
+
+  <!-- Arrow right into Browse Tasks -->
+  <line x1="220" y1="300" x2="310" y2="300" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Browse / filter tasks -->
+  <rect x="312" y="276" width="155" height="48" rx="8" fill="#134E4A"/>
+  <text x="389" y="297" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Browse Tasks</text>
+  <text x="389" y="313" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">filter by category · search</text>
+
+  <!-- Arrow right: post new task -->
+  <line x1="467" y1="300" x2="514" y2="300" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Post Task -->
+  <rect x="516" y="276" width="155" height="48" rx="8" fill="#134E4A"/>
+  <text x="593" y="297" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Post a Task</text>
+  <text x="593" y="313" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">reward deducted → escrow held</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ROW 3 — Claim Task (decision: poster or claimer?)           -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+
+  <!-- Arrow down from Post -->
+  <line x1="593" y1="324" x2="593" y2="366" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Claim Task -->
+  <rect x="516" y="368" width="155" height="48" rx="8" fill="#134E4A"/>
+  <text x="593" y="388" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Claim Task</text>
+  <text x="593" y="404" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">status: open → in-progress</text>
+
+  <!-- Arrow down from Claim -->
+  <line x1="593" y1="416" x2="593" y2="450" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Mark Done -->
+  <rect x="516" y="452" width="155" height="48" rx="8" fill="#134E4A"/>
+  <text x="593" y="472" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Mark Done</text>
+  <text x="593" y="488" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">status: pending-confirmation</text>
+
+  <!-- Arrow left to Poster Confirms -->
+  <line x1="516" y1="476" x2="467" y2="476" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Poster Confirms + Rates -->
+  <rect x="312" y="452" width="155" height="48" rx="8" fill="#134E4A"/>
+  <text x="389" y="472" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Poster Confirms</text>
+  <text x="389" y="488" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">rates 1–5 stars · completes task</text>
+
+  <!-- Arrow left to Reward Paid -->
+  <line x1="312" y1="476" x2="260" y2="476" stroke="#2DD4BF" stroke-width="1.5"
+        marker-end="url(#arr-teal)"/>
+
+  <!-- Reward Paid to Assignee -->
+  <rect x="80" y="452" width="178" height="48" rx="8" fill="#134E4A"/>
+  <text x="169" y="472" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#2DD4BF">Reward Credited</text>
+  <text x="169" y="488" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#99F6E4">wallet += reward · status: completed</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- Decision: poster tries to claim own task (error path)       -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+
+  <!-- Poster delete (amber path) from Browse Tasks -->
+  <line x1="389" y1="324" x2="389" y2="370" stroke="#FBBF24" stroke-width="1.5"
+        marker-end="url(#arr-amb)"/>
+  <rect x="312" y="372" width="155" height="48" rx="8" fill="#292400"/>
+  <text x="389" y="392" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#FBBF24">Delete Task</text>
+  <text x="389" y="408" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#FDE68A">poster only · refund escrow</text>
+
+  <!-- Label for amber path -->
+  <text x="394" y="355"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#FBBF24">poster cancels</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- 24h auto-cleanup annotation                                  -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <rect x="700" y="452" width="180" height="48" rx="8" fill="#1a1200" stroke="#FBBF24" stroke-width="1" stroke-dasharray="4 2"/>
+  <text x="790" y="472" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" font-weight="600" fill="#FBBF24">24h Auto-Cleanup</text>
+  <text x="790" y="488" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#FDE68A">stale open tasks deleted + refund</text>
+
+  <!-- Cleanup arrow from Post Task box (right side) -->
+  <line x1="671" y1="300" x2="730" y2="300" stroke="#FBBF24" stroke-width="1.2"
+        stroke-dasharray="4 2"/>
+  <line x1="730" y1="300" x2="730" y2="452" stroke="#FBBF24" stroke-width="1.2"
+        stroke-dasharray="4 2" marker-end="url(#arr-amb)"/>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- Legend                                                       -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <rect x="20" y="525" width="860" height="28" rx="4" fill="#111827"/>
+  <rect x="30" y="533" width="12" height="12" rx="2" fill="#134E4A"/>
+  <text x="48" y="543"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#2DD4BF">Happy path</text>
+  <rect x="150" y="533" width="12" height="12" rx="2" fill="#1C0A0A"/>
+  <text x="168" y="543"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#F87171">Auth / error path</text>
+  <rect x="290" y="533" width="12" height="12" rx="2" fill="#292400"/>
+  <text x="308" y="543"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#FBBF24">Decision / cancellation</text>
+
+</svg>

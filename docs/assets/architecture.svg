@@ -1,0 +1,220 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" width="100%" role="img" aria-label="SideQuest system architecture diagram">
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#6B7280"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#60A5FA"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#34D399"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9CA3AF"/>
+    </marker>
+  </defs>
+
+  <!-- Page background -->
+  <rect width="900" height="520" fill="#0d1117"/>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ZONE 1: Browser / SPA  (blue tone)                          -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <rect x="20" y="20" width="370" height="380" rx="8" fill="none"
+        stroke="#1D4ED8" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="30" y="38"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#60A5FA">Browser / SPA</text>
+
+  <!-- index.html -->
+  <rect x="40" y="50" width="150" height="52" rx="8" fill="#1E3A5F"/>
+  <text x="115" y="72" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#93C5FD">index.html</text>
+  <text x="115" y="88" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">HTML shell + entry point</text>
+
+  <!-- app.js -->
+  <rect x="210" y="50" width="160" height="52" rx="8" fill="#1E3A5F"/>
+  <text x="290" y="72" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#93C5FD">app.js</text>
+  <text x="290" y="88" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">Orchestrator &amp; auth router</text>
+
+  <!-- auth.js -->
+  <rect x="40" y="130" width="150" height="52" rx="8" fill="#1E3A5F"/>
+  <text x="115" y="152" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#93C5FD">auth.js</text>
+  <text x="115" y="168" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">Login / signup forms</text>
+
+  <!-- map.js -->
+  <rect x="210" y="130" width="160" height="52" rx="8" fill="#1E3A5F"/>
+  <text x="290" y="152" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#93C5FD">map.js</text>
+  <text x="290" y="168" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">MapLibre + geolocation</text>
+
+  <!-- tasks.js -->
+  <rect x="40" y="210" width="150" height="52" rx="8" fill="#1E3A5F"/>
+  <text x="115" y="232" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#93C5FD">tasks.js</text>
+  <text x="115" y="248" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">Task CRUD &amp; escrow logic</text>
+
+  <!-- ui.js -->
+  <rect x="210" y="210" width="160" height="52" rx="8" fill="#1E3A5F"/>
+  <text x="290" y="232" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#93C5FD">ui.js</text>
+  <text x="290" y="248" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">Toasts &amp; confirm dialogs</text>
+
+  <!-- firebase-config.js -->
+  <rect x="40" y="290" width="330" height="52" rx="8" fill="#162032"/>
+  <text x="205" y="312" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#7DD3FC">firebase-config.js</text>
+  <text x="205" y="328" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#6B9AC4">SDK init · auth &amp; db singletons</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ZONE 2: Firebase / Google Cloud  (green tone)               -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <rect x="520" y="20" width="360" height="240" rx="8" fill="none"
+        stroke="#065F46" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="530" y="38"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#34D399">Firebase · Google Cloud</text>
+
+  <!-- Firebase Auth -->
+  <rect x="540" y="50" width="150" height="90" rx="8" fill="#052e16"/>
+  <text x="615" y="76" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#6EE7B7">Firebase Auth</text>
+  <text x="615" y="94" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">Email / Password</text>
+  <text x="615" y="110" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">JWT tokens (1h)</text>
+  <text x="615" y="126" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">onAuthStateChanged</text>
+
+  <!-- Cloud Firestore -->
+  <rect x="708" y="50" width="154" height="90" rx="8" fill="#052e16"/>
+  <text x="785" y="76" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#6EE7B7">Cloud Firestore</text>
+  <text x="785" y="94" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">/users · /tasks</text>
+  <text x="785" y="110" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">onSnapshot real-time</text>
+  <text x="785" y="126" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">runTransaction (escrow)</text>
+
+  <!-- Firebase Hosting -->
+  <rect x="540" y="162" width="322" height="52" rx="8" fill="#052e16"/>
+  <text x="701" y="184" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="13" font-weight="600" fill="#6EE7B7">Firebase Hosting</text>
+  <text x="701" y="200" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="11" fill="#4ADE80">Static file serving · global CDN edge</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ZONE 3: External CDN Services  (gray tone)                  -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <rect x="20" y="430" width="860" height="70" rx="8" fill="none"
+        stroke="#374151" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="30" y="448"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#9CA3AF">External CDN Services</text>
+
+  <!-- MapLibre -->
+  <rect x="40" y="456" width="140" height="36" rx="6" fill="#1C1C2E"/>
+  <text x="110" y="470" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#A5B4FC">MapLibre GL JS</text>
+  <text x="110" y="484" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#818CF8">unpkg.com · v3.6.2</text>
+
+  <!-- Tailwind -->
+  <rect x="200" y="456" width="140" height="36" rx="6" fill="#1C1C2E"/>
+  <text x="270" y="470" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#A5B4FC">Tailwind CSS</text>
+  <text x="270" y="484" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#818CF8">cdn.tailwindcss.com</text>
+
+  <!-- Firebase SDK -->
+  <rect x="360" y="456" width="160" height="36" rx="6" fill="#1C1C2E"/>
+  <text x="440" y="470" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#A5B4FC">Firebase SDK 10.7.1</text>
+  <text x="440" y="484" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#818CF8">www.gstatic.com</text>
+
+  <!-- OpenStreetMap -->
+  <rect x="540" y="456" width="180" height="36" rx="6" fill="#1C1C2E"/>
+  <text x="630" y="470" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#A5B4FC">OpenStreetMap Tiles</text>
+  <text x="630" y="484" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#818CF8">tile.openstreetmap.org</text>
+
+  <!-- Geolocation API -->
+  <rect x="740" y="456" width="130" height="36" rx="6" fill="#1C1C2E"/>
+  <text x="805" y="470" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="12" font-weight="600" fill="#A5B4FC">Geolocation API</text>
+  <text x="805" y="484" text-anchor="middle"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#818CF8">browser built-in</text>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <!-- ARROWS                                                       -->
+  <!-- ─────────────────────────────────────────────────────────── -->
+
+  <!-- SPA → Firebase Auth  (HTTPS / JWT) -->
+  <line x1="390" y1="200" x2="518" y2="95" stroke="#60A5FA" stroke-width="1.5"
+        stroke-dasharray="4 2" marker-end="url(#arrow-blue)"/>
+  <text x="440" y="155"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#60A5FA">HTTPS / JWT</text>
+
+  <!-- SPA → Firestore  (onSnapshot / REST) -->
+  <line x1="390" y1="240" x2="706" y2="100" stroke="#34D399" stroke-width="1.5"
+        stroke-dasharray="4 2" marker-end="url(#arrow-green)"/>
+  <text x="560" y="205"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#34D399">onSnapshot / REST</text>
+
+  <!-- SPA → CDN (HTTPS) -->
+  <line x1="205" y1="400" x2="205" y2="428" stroke="#9CA3AF" stroke-width="1.5"
+        marker-end="url(#arrow-gray)"/>
+  <text x="210" y="420"
+        font-family="system-ui, -apple-system, monospace"
+        font-size="10" fill="#9CA3AF">HTTPS</text>
+
+</svg>
