@@ -88,7 +88,7 @@
         font-size="13" font-weight="600" fill="#7DD3FC">firebase-config.js</text>
   <text x="205" y="328" text-anchor="middle"
         font-family="system-ui, -apple-system, monospace"
-        font-size="11" fill="#6B9AC4">SDK init · exports auth &amp; db singletons</text>
+        font-size="11" fill="#6B9AC4">SDK init · auth &amp; db singletons</text>
 
   <!-- ─────────────────────────────────────────────────────────── -->
   <!-- ZONE 2: Firebase / Google Cloud  (green tone)               -->

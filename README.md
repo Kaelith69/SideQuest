@@ -222,7 +222,7 @@ SideQuest/
 │   ├── auth.js             # Login / signup / logout form handlers
 │   ├── map.js              # MapLibre GL map, geolocation, task markers
 │   ├── tasks.js            # Task CRUD, real-time listener, escrow logic, UI state
-│   └── ui.js               # Shared utilities: showToast(), showConfirm()
+│   └── ui.js                # Shared utilities: showToast(), showConfirm()
 │
 ├── styles/
 │   ├── main.css            # Custom CSS (animations, map marker styles, safe-area)
@@ -278,7 +278,7 @@ await signInWithEmailAndPassword(auth, email, password);
 | `calculateDistance` | `calculateDistance(lat1, lon1, lat2, lon2) → number` | Returns the Haversine distance in kilometres between two points. |
 | `flyToUserLocation` | `flyToUserLocation() → void` | Animates the map to the user's last known location. |
 | `onUserLocationUpdate` | `onUserLocationUpdate(callback) → void` | Registers a callback that fires whenever the user's GPS position changes. Fires immediately if a position is already known. |
-| `currentUserLocation` | `{lat, lng} \| null` | Exported module-level variable holding the latest user position. |
+| `currentUserLocation` | `{lat, lng}` or `null` | Exported module-level variable holding the latest user position. |
 
 **Example — distance filter:**
 
